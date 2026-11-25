@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Check, ChevronDown } from 'lucide-react';
 
 export interface SelectOption<T extends string = string> {
@@ -20,8 +21,8 @@ interface SelectDropdownProps<T extends string = string> {
 }
 
 /**
- * Custom curved-edge glassmorphic select dropdown that replaces native OS
- * `<select>` popups with rounded, keyboard-accessible dark-navy menus.
+ * Custom curved-edge glassmorphic select dropdown that renders its menu in a
+ * viewport-aware portal so it never clips behind parent cards or footers.
  */
 export function SelectDropdown<T extends string = string>({
   id,
@@ -39,7 +40,16 @@ export function SelectDropdown<T extends string = string>({
   const [activeIndex, setActiveIndex] = useState(() =>
     Math.max(0, options.findIndex((o) => o.value === value))
   );
+  const [menuPos, setMenuPos] = useState<{
+    top?: number;
+    bottom?: number;
+    left: number;
+    width: number;
+  } | null>(null);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLUListElement | null>(null);
   const listboxId = useId();
 
   const selectedOption = options.find((o) => o.value === value);
@@ -49,10 +59,43 @@ export function SelectDropdown<T extends string = string>({
     if (idx >= 0) setActiveIndex(idx);
   }, [value, options]);
 
+  const updatePosition = () => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const estimatedHeight = Math.min(256, options.length * 40 + 16);
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUpward = spaceBelow < estimatedHeight && rect.top > spaceBelow;
+
+    setMenuPos({
+      left: rect.left,
+      width: Math.max(rect.width, 176),
+      top: openUpward ? undefined : rect.bottom + 6,
+      bottom: openUpward ? window.innerHeight - rect.top + 6 : undefined,
+    });
+  };
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    const handleReposition = () => updatePosition();
+    window.addEventListener('scroll', handleReposition, true);
+    window.addEventListener('resize', handleReposition);
+    return () => {
+      window.removeEventListener('scroll', handleReposition, true);
+      window.removeEventListener('resize', handleReposition);
+    };
+  }, [open, options.length]);
+
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
+      ) {
         setOpen(false);
       }
     };
@@ -109,9 +152,52 @@ export function SelectDropdown<T extends string = string>({
     }
   };
 
+  const menuElement =
+    open && menuPos ? (
+      <ul
+        ref={menuRef}
+        id={listboxId}
+        role="listbox"
+        aria-label={ariaLabel}
+        style={{
+          position: 'fixed',
+          left: `${menuPos.left}px`,
+          width: `${menuPos.width}px`,
+          top: menuPos.top !== undefined ? `${menuPos.top}px` : undefined,
+          bottom: menuPos.bottom !== undefined ? `${menuPos.bottom}px` : undefined,
+        }}
+        className={`z-[9999] max-h-64 overflow-auto rounded-2xl border border-slate-700/80 bg-slate-900/95 p-1.5 shadow-2xl shadow-black/75 backdrop-blur-xl ${menuClassName}`}
+      >
+        {options.map((option, index) => {
+          const isSelected = option.value === value;
+          const isHighlighted = index === activeIndex;
+          return (
+            <li key={option.value} role="option" aria-selected={isSelected}>
+              <button
+                type="button"
+                onMouseEnter={() => setActiveIndex(index)}
+                onClick={() => selectAt(index)}
+                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
+                  isSelected
+                    ? 'bg-cyan-500/20 font-medium text-cyan-200'
+                    : isHighlighted
+                      ? 'bg-slate-800/90 text-white'
+                      : 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
+                }`}
+              >
+                <span className="truncate">{option.label}</span>
+                {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-cyan-300" aria-hidden="true" />}
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    ) : null;
+
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       <button
+        ref={buttonRef}
         id={id}
         type="button"
         disabled={disabled}
@@ -130,38 +216,7 @@ export function SelectDropdown<T extends string = string>({
         />
       </button>
 
-      {open && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          aria-label={ariaLabel}
-          className={`absolute left-0 right-0 z-50 mt-1.5 max-h-64 min-w-[11rem] overflow-auto rounded-2xl border border-slate-700/80 bg-slate-900/95 p-1.5 shadow-2xl shadow-black/70 backdrop-blur-xl ${menuClassName}`}
-        >
-          {options.map((option, index) => {
-            const isSelected = option.value === value;
-            const isHighlighted = index === activeIndex;
-            return (
-              <li key={option.value} role="option" aria-selected={isSelected}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => selectAt(index)}
-                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition ${
-                    isSelected
-                      ? 'bg-cyan-500/20 font-medium text-cyan-200'
-                      : isHighlighted
-                        ? 'bg-slate-800/90 text-white'
-                        : 'text-slate-200 hover:bg-slate-800/80 hover:text-white'
-                  }`}
-                >
-                  <span className="truncate">{option.label}</span>
-                  {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-cyan-300" aria-hidden="true" />}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {menuElement && typeof document !== 'undefined' ? createPortal(menuElement, document.body) : null}
     </div>
   );
 }
