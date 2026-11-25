@@ -40,7 +40,7 @@ export function AppLayout() {
       </a>
 
       <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/85 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-screen-2xl items-center justify-between px-4 py-3 sm:px-6 lg:px-10">
           <Link to="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight text-white">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-600 text-slate-950 shadow-lg shadow-cyan-500/20">
               <Sparkles className="h-5 w-5" />
@@ -197,7 +197,7 @@ export function AppLayout() {
       </main>
 
       <footer className="border-t border-slate-800/80 bg-slate-950 py-8 text-sm text-slate-400">
-        <div className="mx-auto flex max-w-7xl flex-col items-start justify-between gap-4 px-4 sm:flex-row sm:items-center sm:px-6">
+        <div className="mx-auto flex max-w-screen-2xl flex-col items-start justify-between gap-4 px-4 sm:flex-row sm:items-center sm:px-6 lg:px-10">
           <div>
             <p className="font-semibold text-slate-200">Spatial Stay</p>
             <p className="text-xs text-slate-400">

@@ -11,7 +11,16 @@ import { LoginPage } from '../pages/auth/LoginPage';
 import { InteractiveBedSelector } from '../components/property/InteractiveBedSelector';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { OwnerPropertiesPage } from '../pages/owner/OwnerPropertiesPage';
+import { LandingPage } from '../pages/public/LandingPage';
 import type { RoomResponse, PropertyAvailabilityResponse } from '../types/api';
+
+vi.mock('../components/three/SpatialHeroScene', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../components/three/SpatialHeroScene')>();
+  return {
+    ...actual,
+    default: () => <div data-testid="spatial-hero-3d-mock">3D Scene</div>,
+  };
+});
 
 function renderWithProviders(ui: React.ReactElement, initialRoute = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -214,5 +223,29 @@ describe('Spatial Stay Frontend', () => {
 
     await user.click(screen.getByRole('button', { name: /confirm pin location/i }));
     expect(saveBtn).toBeEnabled();
+  });
+
+  it('does not hardcode Bengaluru on landing search and validates city/location before searching', async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          message: 'ok',
+          data: { content: [], page: 0, size: 12, totalElements: 0, totalPages: 0 },
+          timestamp: '2026-11-25T10:00:00Z',
+        }),
+      }),
+    );
+
+    renderWithProviders(<LandingPage />, '/');
+    const cityInput = screen.getByLabelText(/city \/ area/i) as HTMLInputElement;
+    expect(cityInput.value).toBe('');
+
+    await user.click(screen.getByRole('button', { name: /search stays/i }));
+    expect(await screen.findByText(/enter a city or tap "use my location"/i)).toBeInTheDocument();
   });
 });

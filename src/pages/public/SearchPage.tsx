@@ -69,8 +69,20 @@ export function SearchPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Explore Hostels &amp; PGs</h1>
-          <p className="text-sm text-slate-400">Live backend search with verified availability and half-open interval checks.</p>
+          <h1 className="text-2xl font-bold text-white">
+            {paramsObj.stayType === 'SHORT_STAY'
+              ? 'Short Stays (Hourly & Nightly)'
+              : paramsObj.stayType === 'LONG_STAY'
+              ? 'Monthly PGs & Long-Term Stays'
+              : 'Explore Hostels & PGs'}
+          </h1>
+          <p className="text-sm text-slate-400">
+            {paramsObj.stayType === 'SHORT_STAY'
+              ? 'Flexible 3-hour to 14-day stays with live half-open interval bed checks.'
+              : paramsObj.stayType === 'LONG_STAY'
+              ? 'Weekly & monthly PGs with transparent monthly rent schedules and security deposit tracking.'
+              : 'Live backend search with verified availability and half-open interval checks.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="inline-flex rounded-xl border border-slate-700 bg-slate-900 p-0.5 text-xs" role="group" aria-label="Results view mode">
