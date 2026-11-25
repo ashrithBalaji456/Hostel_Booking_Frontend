@@ -611,3 +611,194 @@ export function OwnerAnalyticsCharts({
     </div>
   );
 }
+
+interface PieChart3DCardProps {
+  properties: PropertyDetailResponse[];
+  bookings: BookingResponse[];
+  dashboard?: OwnerDashboardResponse;
+  analytics?: OwnerAnalyticsResponse;
+}
+
+/**
+ * Interactive 3D filled Pie Chart card where hovering any wedge (or legend item)
+ * lifts and pops the segment outward with a glowing shadow.
+ */
+export function PieChart3DCard({
+  properties,
+  bookings,
+  dashboard,
+  analytics,
+}: PieChart3DCardProps) {
+  const [pieMode, setPieMode] = useState<'beds' | 'bookings' | 'rates'>('beds');
+  const [hoveredSlice, setHoveredSlice] = useState<number | null>(null);
+
+  const nowMs = Date.now();
+  const bookedBedIds = new Set(
+    bookings
+      .filter((b) => new Date(b.checkOut).getTime() > nowMs && (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING'))
+      .map((b) => b.bedId),
+  );
+  const allBeds = properties.flatMap((p) => (p.rooms ?? []).flatMap((r) => r.beds ?? []));
+  const occupied = allBeds.filter((b) => bookedBedIds.has(b.id)).length;
+  const blocked = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status !== 'AVAILABLE').length;
+  const vacant = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
+
+  const avgHourly = properties.length
+    ? Math.round(properties.reduce((s, p) => s + (p.pricing?.hourlyRate ?? 0), 0) / properties.length)
+    : 0;
+  const avgNightly = properties.length
+    ? Math.round(properties.reduce((s, p) => s + (p.pricing?.nightlyRate ?? 0), 0) / properties.length)
+    : 0;
+  const avgDeposit = properties.length
+    ? Math.round(properties.reduce((s, p) => s + (p.pricing?.securityDeposit ?? 0), 0) / properties.length)
+    : 0;
+
+  const slices: ChartDatum[] =
+    pieMode === 'beds'
+      ? [
+          { label: 'Vacant', value: vacant, displayValue: `${vacant} beds`, color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
+          { label: 'Booked', value: occupied, displayValue: `${occupied} beds`, color: '#fbbf24', glow: 'rgba(251,191,36,0.55)' },
+          { label: 'Blocked', value: blocked, displayValue: `${blocked} beds`, color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
+        ]
+      : pieMode === 'bookings'
+      ? [
+          { label: 'Confirmed', value: dashboard?.confirmedBookings ?? 0, displayValue: String(dashboard?.confirmedBookings ?? 0), color: '#22d3ee', glow: 'rgba(34,211,238,0.55)' },
+          { label: 'Pending', value: dashboard?.pendingBookings ?? 0, displayValue: String(dashboard?.pendingBookings ?? 0), color: '#fbbf24', glow: 'rgba(251,191,36,0.55)' },
+          { label: 'Completed', value: analytics?.completedBookings ?? 0, displayValue: String(analytics?.completedBookings ?? 0), color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
+          { label: 'Cancelled', value: analytics?.cancelledBookings ?? 0, displayValue: String(analytics?.cancelledBookings ?? 0), color: '#fb7185', glow: 'rgba(251,113,133,0.55)' },
+        ]
+      : [
+          { label: 'Hourly', value: avgHourly, displayValue: formatINR(avgHourly), color: '#22d3ee', glow: 'rgba(34,211,238,0.55)' },
+          { label: 'Nightly', value: avgNightly, displayValue: formatINR(avgNightly), color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
+          { label: 'Deposit', value: avgDeposit, displayValue: formatINR(avgDeposit), color: '#c084fc', glow: 'rgba(192,132,252,0.55)' },
+        ];
+
+  const total = slices.reduce((s, d) => s + d.value, 0);
+  const cx = 80;
+  const cy = 76;
+  const r = 56;
+
+  const nonZero = slices.map((s, idx) => ({ ...s, idx })).filter((s) => s.value > 0);
+  let startAngle = -Math.PI / 2;
+
+  const tabClass = (active: boolean) =>
+    `rounded-lg px-2 py-1 text-[11px] font-medium transition ${
+      active ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-400/40' : 'text-slate-400 hover:text-white'
+    }`;
+
+  return (
+    <div className="rounded-2xl border border-slate-700/60 bg-slate-900/45 p-4 backdrop-blur-xl transition-all duration-300 hover:-translate-y-1 hover:border-cyan-400/50 hover:shadow-2xl hover:shadow-cyan-500/15">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <PieChart className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-sm font-semibold text-white">3D Pie Breakdown</h3>
+        </div>
+        <div className="flex items-center gap-0.5 rounded-xl border border-slate-800 bg-slate-950/70 p-0.5">
+          <button type="button" onClick={() => setPieMode('beds')} className={tabClass(pieMode === 'beds')}>
+            Beds
+          </button>
+          <button type="button" onClick={() => setPieMode('bookings')} className={tabClass(pieMode === 'bookings')}>
+            Bookings
+          </button>
+          <button type="button" onClick={() => setPieMode('rates')} className={tabClass(pieMode === 'rates')}>
+            Rates
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-col items-center">
+        <svg viewBox="0 0 160 160" className="h-40 w-40 overflow-visible" role="img" aria-label="3D interactive pie chart">
+          {/* 3D base shadow */}
+          <ellipse cx={cx} cy={cy + 10} rx={r} ry={r * 0.96} fill="rgba(2,6,23,0.75)" />
+          {nonZero.length === 0 ? (
+            <circle cx={cx} cy={cy} r={r} fill="rgba(51,65,85,0.45)" stroke="rgba(148,163,184,0.25)" />
+          ) : nonZero.length === 1 ? (
+            (() => {
+              const only = nonZero[0];
+              const isHovered = hoveredSlice === only.idx;
+              return (
+                <g
+                  onMouseEnter={() => setHoveredSlice(only.idx)}
+                  onMouseLeave={() => setHoveredSlice(null)}
+                  style={{
+                    transform: isHovered ? 'translateY(-7px) scale(1.04)' : 'translateY(0px) scale(1)',
+                    transformOrigin: `${cx}px ${cy}px`,
+                    transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+                    cursor: 'pointer',
+                    filter: isHovered ? `drop-shadow(0 10px 14px ${only.glow})` : undefined,
+                  }}
+                >
+                  <circle cx={cx} cy={cy} r={r} fill={only.color} fillOpacity={isHovered ? 0.95 : 0.78} stroke="#0f172a" strokeWidth={2} />
+                </g>
+              );
+            })()
+          ) : (
+            nonZero.map((slice) => {
+              const angleSpan = (slice.value / total) * Math.PI * 2;
+              const endAngle = startAngle + angleSpan;
+              const midAngle = startAngle + angleSpan / 2;
+              const x1 = cx + Math.cos(startAngle) * r;
+              const y1 = cy + Math.sin(startAngle) * r;
+              const x2 = cx + Math.cos(endAngle) * r;
+              const y2 = cy + Math.sin(endAngle) * r;
+              const largeArc = angleSpan > Math.PI ? 1 : 0;
+              const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+              startAngle = endAngle;
+
+              const isHovered = hoveredSlice === slice.idx;
+              const liftX = isHovered ? Math.cos(midAngle) * 8 : 0;
+              const liftY = isHovered ? Math.sin(midAngle) * 8 - 5 : 0;
+
+              return (
+                <path
+                  key={slice.label}
+                  d={d}
+                  fill={slice.color}
+                  fillOpacity={isHovered ? 0.96 : 0.78}
+                  stroke="#0f172a"
+                  strokeWidth={2}
+                  onMouseEnter={() => setHoveredSlice(slice.idx)}
+                  onMouseLeave={() => setHoveredSlice(null)}
+                  style={{
+                    transform: `translate(${liftX}px, ${liftY}px) scale(${isHovered ? 1.04 : 1})`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                    transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1), fill-opacity 180ms ease',
+                    cursor: 'pointer',
+                    filter: isHovered ? `drop-shadow(0 10px 14px ${slice.glow})` : undefined,
+                  }}
+                />
+              );
+            })
+          )}
+        </svg>
+
+        <div className="mt-2 w-full space-y-1.5">
+          {slices.map((s, idx) => {
+            const pct = total > 0 ? Math.round((s.value / total) * 100) : 0;
+            const isHovered = hoveredSlice === idx;
+            return (
+              <div
+                key={s.label}
+                onMouseEnter={() => setHoveredSlice(idx)}
+                onMouseLeave={() => setHoveredSlice(null)}
+                className={`flex cursor-pointer items-center justify-between rounded-xl border px-3 py-1.5 text-xs transition-all duration-200 ${
+                  isHovered
+                    ? '-translate-y-0.5 border-cyan-400/50 bg-slate-800/85 shadow-lg'
+                    : 'border-slate-800/80 bg-slate-950/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                  <span className="text-slate-200">{s.label}</span>
+                </div>
+                <span className="font-semibold text-white">
+                  {s.displayValue} <span className="text-slate-400">({pct}%)</span>
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
