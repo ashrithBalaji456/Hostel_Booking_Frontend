@@ -10,6 +10,7 @@ import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { InteractiveBedSelector } from '../components/property/InteractiveBedSelector';
 import { StatusBadge } from '../components/ui/StatusBadge';
+import { OwnerPropertiesPage } from '../pages/owner/OwnerPropertiesPage';
 import type { RoomResponse, PropertyAvailabilityResponse } from '../types/api';
 
 function renderWithProviders(ui: React.ReactElement, initialRoute = '/') {
@@ -174,5 +175,44 @@ describe('Spatial Stay Frontend', () => {
   it('renders readable status labels alongside color badges', () => {
     render(<StatusBadge status="CONFIRMED" />);
     expect(screen.getByText('CONFIRMED')).toBeInTheDocument();
+  });
+
+  it('requests geolocation only on tap, captures accuracy, and requires explicit pin confirmation', async () => {
+    const user = userEvent.setup();
+    const getCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: {
+          latitude: 12.935211,
+          longitude: 77.624481,
+          accuracy: 18,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+          toJSON: () => ({}),
+        },
+        timestamp: Date.now(),
+        toJSON: () => ({}),
+      } as GeolocationPosition);
+    });
+
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition },
+    });
+
+    renderWithProviders(<OwnerPropertiesPage />);
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+
+    const saveBtn = screen.getByRole('button', { name: /create property/i });
+    expect(saveBtn).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /use current location/i }));
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText(/Captured GPS accuracy: ±18 meters/i)).toBeInTheDocument();
+    expect(saveBtn).toBeDisabled();
+
+    await user.click(screen.getByRole('button', { name: /confirm pin location/i }));
+    expect(saveBtn).toBeEnabled();
   });
 });
