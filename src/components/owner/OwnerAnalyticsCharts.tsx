@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, IndianRupee, PieChart, Activity, Radar } from 'lucide-react';
+import { BarChart3, CalendarRange, IndianRupee, PieChart, Activity, Radar } from 'lucide-react';
 import type {
   BookingResponse,
   OwnerAnalyticsResponse,
@@ -133,16 +133,18 @@ export function OwnerAnalyticsCharts({
   occupiedBeds,
   unavailableBeds,
 }: OwnerAnalyticsChartsProps) {
+  const [timeRange, setTimeRange] = useState<'7D' | '30D' | '90D' | '1Y' | 'ALL'>('30D');
+
   const [barMode, setBarMode] = useState<'inventory' | 'properties'>('inventory');
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
 
-  const [revMode, setRevMode] = useState<'byProperty' | 'monthly' | 'daily'>('byProperty');
+  const [revMode, setRevMode] = useState<'byProperty' | 'overTime'>('overTime');
   const [hoveredRevBar, setHoveredRevBar] = useState<number | null>(null);
 
   const [ringMode, setRingMode] = useState<'stayType' | 'verification' | 'propertyType'>('stayType');
   const [hoveredRing, setHoveredRing] = useState<number | null>(null);
 
-  const [waveMode, setWaveMode] = useState<'financials' | 'pricing'>('financials');
+  const [waveMode, setWaveMode] = useState<'overTime' | 'financials' | 'pricing'>('overTime');
   const [hoveredNode, setHoveredNode] = useState<number | null>(null);
 
   const [radarMode, setRadarMode] = useState<'health' | 'distribution'>('health');
@@ -170,8 +172,22 @@ export function OwnerAnalyticsCharts({
           };
         });
 
-  // --- 1B. 3D Glass Revenue Bar Graph (By Property / Monthly / Daily) ---
-  const validBookings = bookings.filter((b) => b.bookingStatus !== 'CANCELLED' && b.bookingStatus !== 'REJECTED');
+  // --- Timeframe Filtering ---
+  const nowDate = new Date();
+  const rangeDaysMap: Record<'7D' | '30D' | '90D' | '1Y', number> = {
+    '7D': 7,
+    '30D': 30,
+    '90D': 90,
+    '1Y': 365,
+  };
+  const cutoffMs =
+    timeRange === 'ALL'
+      ? 0
+      : nowDate.getTime() - rangeDaysMap[timeRange] * 24 * 60 * 60 * 1000;
+  const rangedBookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= cutoffMs);
+  const validBookings = rangedBookings.filter(
+    (b) => b.bookingStatus !== 'CANCELLED' && b.bookingStatus !== 'REJECTED',
+  );
   const revColors = ['#34d399', '#22d3ee', '#818cf8', '#fbbf24', '#c084fc'];
 
   const revByPropertyData: ChartDatum[] = properties.slice(0, 5).map((p, idx) => {
@@ -187,51 +203,43 @@ export function OwnerAnalyticsCharts({
     };
   });
 
-  const nowDate = new Date();
-  const revMonthlyData: ChartDatum[] = Array.from({ length: 5 }, (_, offset) => {
-    const d = new Date(nowDate.getFullYear(), nowDate.getMonth() - (4 - offset), 1);
-    const key = `${d.getFullYear()}-${d.getMonth()}`;
-    const label = d.toLocaleDateString('en-IN', { month: 'short' });
-    const rev = validBookings
-      .filter((b) => {
-        const bd = new Date(b.createdAt);
-        return `${bd.getFullYear()}-${bd.getMonth()}` === key;
-      })
-      .reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
+  // Dynamic time buckets matching the selected timeframe (5 buckets)
+  const bucketCount = 5;
+  const totalSpanDays = timeRange === '7D' ? 5 : timeRange === '30D' ? 30 : timeRange === '90D' ? 90 : 150;
+  const bucketMs = (totalSpanDays / bucketCount) * 24 * 60 * 60 * 1000;
+  const overTimeBuckets = Array.from({ length: bucketCount }, (_, idx) => {
+    const endMs = nowDate.getTime() - (bucketCount - 1 - idx) * bucketMs;
+    const startMs = endMs - bucketMs;
+    const bucketDate = new Date(endMs);
+    const label =
+      timeRange === '7D' || timeRange === '30D'
+        ? bucketDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+        : bucketDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+    const inBucket = validBookings.filter((b) => {
+      const t = new Date(b.createdAt).getTime();
+      return t >= startMs && t <= endMs;
+    });
+    const rev = inBucket.reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
     return {
       label,
-      value: rev,
-      displayValue: formatINR(rev),
-      color: revColors[offset % revColors.length],
-      glow: 'rgba(34,211,238,0.5)',
+      rev,
+      count: inBucket.length,
     };
   });
 
-  const revDailyData: ChartDatum[] = Array.from({ length: 5 }, (_, offset) => {
-    const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - (4 - offset));
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    const label = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
-    const rev = validBookings
-      .filter((b) => {
-        const bd = new Date(b.createdAt);
-        return `${bd.getFullYear()}-${bd.getMonth()}-${bd.getDate()}` === key;
-      })
-      .reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
-    return {
-      label,
-      value: rev,
-      displayValue: formatINR(rev),
-      color: revColors[offset % revColors.length],
-      glow: 'rgba(129,140,248,0.5)',
-    };
-  });
+  const revOverTimeData: ChartDatum[] = overTimeBuckets.map((b, idx) => ({
+    label: b.label,
+    value: b.rev,
+    displayValue: formatINR(b.rev),
+    color: revColors[idx % revColors.length],
+    glow: 'rgba(34,211,238,0.5)',
+  }));
 
-  const revBarData =
-    revMode === 'byProperty' ? revByPropertyData : revMode === 'monthly' ? revMonthlyData : revDailyData;
+  const revBarData = revMode === 'byProperty' ? revByPropertyData : revOverTimeData;
 
   // --- 2. 3D Translucent Ring Gauge Data (Distinct from Sidebar Pie Chart) ---
-  const shortStayCount = bookings.filter((b) => b.stayType === 'SHORT_STAY').length;
-  const longStayCount = bookings.filter((b) => b.stayType === 'LONG_STAY').length;
+  const shortStayCount = rangedBookings.filter((b) => b.stayType === 'SHORT_STAY').length;
+  const longStayCount = rangedBookings.filter((b) => b.stayType === 'LONG_STAY').length;
   const approvedProps = properties.filter((p) => p.verificationStatus === 'APPROVED').length;
   const pendingProps = properties.filter((p) => p.verificationStatus === 'PENDING').length;
   const rejectedProps = properties.filter((p) => p.verificationStatus === 'REJECTED').length;
@@ -260,8 +268,8 @@ export function OwnerAnalyticsCharts({
   const ringCircumference = 2 * Math.PI * ringRadius;
 
   // --- 3. 3D Floating Wave / Area Data ---
-  const grossRev = bookings.reduce((s, b) => s + (b.totalAmount ?? 0), 0);
-  const totalPaid = bookings.reduce((s, b) => s + (b.amountPaid ?? 0), 0);
+  const grossRev = rangedBookings.reduce((s, b) => s + (b.totalAmount ?? 0), 0);
+  const totalPaid = rangedBookings.reduce((s, b) => s + (b.amountPaid ?? 0), 0);
   const netEarn = analytics?.netRevenue ?? dashboard.netEarnings;
   const avgHourly = properties.length
     ? Math.round(properties.reduce((s, p) => s + (p.pricing?.hourlyRate ?? 0), 0) / properties.length)
@@ -277,7 +285,15 @@ export function OwnerAnalyticsCharts({
     : 0;
 
   const waveData: ChartDatum[] =
-    waveMode === 'financials'
+    waveMode === 'overTime'
+      ? overTimeBuckets.map((b, idx) => ({
+          label: b.label,
+          value: b.count,
+          displayValue: `${b.count} bkgs`,
+          color: revColors[idx % revColors.length],
+          glow: 'rgba(34,211,238,0.65)',
+        }))
+      : waveMode === 'financials'
       ? [
           { label: 'Gross', value: grossRev, displayValue: formatINR(grossRev), color: '#22d3ee', glow: 'rgba(34,211,238,0.65)' },
           { label: 'Collected', value: totalPaid, displayValue: formatINR(totalPaid), color: '#fbbf24', glow: 'rgba(251,191,36,0.65)' },
@@ -371,7 +387,39 @@ export function OwnerAnalyticsCharts({
     }`;
 
   return (
-    <div className="grid gap-5 lg:grid-cols-2" style={{ perspective: '1200px' }}>
+    <div className="space-y-5">
+      {/* Global Timeframe Selector */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3.5 backdrop-blur-2xl">
+        <div className="flex items-center gap-2.5">
+          <CalendarRange className="h-4 w-4 text-cyan-400" />
+          <span className="text-sm font-semibold text-white">Analytics Over Time</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-slate-300">
+            {rangedBookings.length} bookings · {formatINR(grossRev)}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-1">
+          {(
+            [
+              { id: '7D', label: '7 Days' },
+              { id: '30D', label: '30 Days' },
+              { id: '90D', label: '90 Days' },
+              { id: '1Y', label: '1 Year' },
+              { id: 'ALL', label: 'All Time' },
+            ] as const
+          ).map((tf) => (
+            <button
+              key={tf.id}
+              type="button"
+              onClick={() => setTimeRange(tf.id)}
+              className={tabClass(timeRange === tf.id)}
+            >
+              {tf.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-2" style={{ perspective: '1200px' }}>
       {/* 1. Enlarged Frosted-Glass 3D Bar Chart */}
       <div className={GLASS_CARD}>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -408,14 +456,11 @@ export function OwnerAnalyticsCharts({
             <h3 className="text-base font-semibold text-white">3D Revenue Comparison</h3>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-0.5">
+            <button type="button" onClick={() => setRevMode('overTime')} className={tabClass(revMode === 'overTime')}>
+              Over Time
+            </button>
             <button type="button" onClick={() => setRevMode('byProperty')} className={tabClass(revMode === 'byProperty')}>
               By Property
-            </button>
-            <button type="button" onClick={() => setRevMode('monthly')} className={tabClass(revMode === 'monthly')}>
-              Monthly
-            </button>
-            <button type="button" onClick={() => setRevMode('daily')} className={tabClass(revMode === 'daily')}>
-              5-Day Trend
             </button>
           </div>
         </div>
@@ -533,6 +578,9 @@ export function OwnerAnalyticsCharts({
             <h3 className="text-base font-semibold text-white">3D Glass Wave Curve</h3>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-0.5">
+            <button type="button" onClick={() => setWaveMode('overTime')} className={tabClass(waveMode === 'overTime')}>
+              Bookings Over Time
+            </button>
             <button type="button" onClick={() => setWaveMode('financials')} className={tabClass(waveMode === 'financials')}>
               Revenue Mix
             </button>
@@ -713,6 +761,7 @@ export function OwnerAnalyticsCharts({
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
