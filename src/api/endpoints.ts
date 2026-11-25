@@ -187,6 +187,8 @@ export const ownerApi = {
     apiRequest<PropertyDetailResponse>('/api/v1/owner/properties', { method: 'POST', body: JSON.stringify(body) }),
   updateProperty: (propertyId: string, body: Record<string, unknown>) =>
     apiRequest<PropertyDetailResponse>(`/api/v1/owner/properties/${propertyId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteProperty: (propertyId: string) =>
+    apiRequest<void>(`/api/v1/owner/properties/${propertyId}`, { method: 'DELETE' }),
   addRoom: (propertyId: string, body: Record<string, unknown>) =>
     apiRequest<RoomResponse>(`/api/v1/owner/properties/${propertyId}/rooms`, { method: 'POST', body: JSON.stringify(body) }),
   addBed: (propertyId: string, body: { roomId: string; bedNumber: string }) =>

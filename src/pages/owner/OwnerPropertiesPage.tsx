@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Crosshair, MapPin, Search } from 'lucide-react';
+import { CheckCircle2, Crosshair, MapPin, Pencil, Search, Trash2 } from 'lucide-react';
 import { ownerApi, propertyApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { resolveCurrentLocation, reverseGeocode } from '../../utils/geolocation';
@@ -61,6 +61,7 @@ export function OwnerPropertiesPage() {
   const [formMode, setFormMode] = useState<'create' | 'edit'>(initialDraft.formMode ?? 'create');
   const [editPropertyId, setEditPropertyId] = useState(initialDraft.editPropertyId ?? '');
   const [loadingExisting, setLoadingExisting] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const [createdProp, setCreatedProp] = useState<PropertyDetailResponse | null>(initialDraft.createdProp ?? null);
   const [targetPropertyId, setTargetPropertyId] = useState(initialDraft.targetPropertyId ?? '');
@@ -294,6 +295,50 @@ export function OwnerPropertiesPage() {
     onError: (e: Error) => pushToast(e.message, 'error'),
   });
 
+  const deletePropertyMutation = useMutation({
+    mutationFn: (propertyId: string) => ownerApi.deleteProperty(propertyId),
+    onSuccess: (_, deletedId) => {
+      setConfirmDeleteId(null);
+      if (createdProp?.id === deletedId) setCreatedProp(null);
+      if (editPropertyId === deletedId) {
+        setEditPropertyId('');
+        setFormMode('create');
+      }
+      if (targetPropertyId === deletedId) setTargetPropertyId('');
+      void qc.invalidateQueries({ queryKey: ['owner-properties'] });
+      void qc.invalidateQueries({ queryKey: ['owner-dashboard'] });
+      pushToast('Property deleted successfully', 'success');
+    },
+    onError: (e: Error) => pushToast(e.message, 'error'),
+  });
+
+  const handleLoadPropertyObj = (p: PropertyDetailResponse) => {
+    setFormMode('edit');
+    setEditPropertyId(p.id);
+    setTargetPropertyId(p.id);
+    setCreatedProp(p);
+    setName(p.name);
+    setPropertyType(p.propertyType);
+    setGenderPolicy(p.genderPolicy);
+    setAddress(p.address);
+    setLocality(p.locality ?? '');
+    setCity(p.city);
+    setState(p.state);
+    setPincode(p.pincode);
+    if (p.latitude != null) setLatitude(String(p.latitude));
+    if (p.longitude != null) setLongitude(String(p.longitude));
+    if (p.pricing) {
+      setHourlyRate(p.pricing.hourlyRate != null ? String(p.pricing.hourlyRate) : '');
+      setNightlyRate(String(p.pricing.nightlyRate));
+      setMonthlyRate(p.pricing.monthlyRate != null ? String(p.pricing.monthlyRate) : '');
+      setSecurityDeposit(String(p.pricing.securityDeposit ?? 0));
+    }
+    setAccuracyMeters(null);
+    setLocationConfirmed(true);
+    setShowUnlockConfirm(false);
+    pushToast(`Loaded "${p.name}" for editing`, 'info');
+  };
+
   const addRoomMutation = useMutation({
     mutationFn: () =>
       ownerApi.addRoom(targetPropertyId, {
@@ -321,6 +366,83 @@ export function OwnerPropertiesPage() {
 
   return (
     <div className="space-y-6">
+      {myPropertiesQuery.data && myPropertiesQuery.data.length > 0 && (
+        <div className="glass-panel rounded-2xl p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-white">Your Properties ({myPropertiesQuery.data.length})</h2>
+              <p className="text-xs text-slate-400">
+                Edit or remove duplicate/unused listings. Deleting removes rooms and beds if no bookings exist.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 space-y-3">
+            {myPropertiesQuery.data.map((prop) => (
+              <div
+                key={prop.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-base font-semibold text-white">{prop.name}</p>
+                    <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[11px] font-medium text-cyan-300">
+                      {prop.propertyType}
+                    </span>
+                    <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-0.5 text-[11px] text-amber-300">
+                      {prop.verificationStatus}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {prop.address}, {prop.city}, {prop.state} {prop.pincode} · {prop.rooms?.length ?? 0} rooms
+                  </p>
+                  <p className="mt-0.5 font-mono text-[11px] text-slate-500">ID: {prop.id}</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLoadPropertyObj(prop)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+
+                  {confirmDeleteId === prop.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={deletePropertyMutation.isPending}
+                        onClick={() => deletePropertyMutation.mutate(prop.id)}
+                        className="rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-rose-500 disabled:opacity-50"
+                      >
+                        {deletePropertyMutation.isPending ? 'Deleting...' : 'Confirm Delete'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="rounded-xl border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-slate-300 hover:bg-slate-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteId(prop.id)}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/20"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Delete
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="glass-panel rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
