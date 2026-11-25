@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Building2, CalendarCheck, Plus, Wallet } from 'lucide-react';
+import { BedDouble, Building2, CalendarCheck, DoorOpen, Plus, Wallet } from 'lucide-react';
 import { ownerApi } from '../../api/endpoints';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { formatINR, formatIST } from '../../utils/format';
@@ -8,6 +8,11 @@ import { formatINR, formatIST } from '../../utils/format';
 export function OwnerDashboardPage() {
   const dashQuery = useQuery({ queryKey: ['owner-dashboard'], queryFn: ownerApi.getDashboard });
   const analyticsQuery = useQuery({ queryKey: ['owner-analytics'], queryFn: ownerApi.getAnalytics });
+  const propertiesQuery = useQuery({ queryKey: ['owner-properties'], queryFn: ownerApi.listProperties });
+  const bookingsQuery = useQuery({
+    queryKey: ['owner-bookings-inventory'],
+    queryFn: () => ownerApi.getBookings({ page: 0, size: 100 }),
+  });
 
   if (dashQuery.isLoading) return <div className="glass-panel h-72 animate-pulse rounded-2xl" />;
   if (dashQuery.isError || !dashQuery.data) {
@@ -16,6 +21,26 @@ export function OwnerDashboardPage() {
 
   const d = dashQuery.data;
   const a = analyticsQuery.data;
+  const properties = propertiesQuery.data ?? [];
+  const bookings = bookingsQuery.data?.content ?? [];
+  const nowMs = Date.now();
+
+  const bookedBedIds = new Set(
+    bookings
+      .filter((b) => {
+        const activeOut = new Date(b.checkOut).getTime() > nowMs;
+        return activeOut && (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING');
+      })
+      .map((b) => b.bedId),
+  );
+
+  const allRooms = properties.flatMap((p) => p.rooms ?? []);
+  const allBeds = allRooms.flatMap((r) => r.beds ?? []);
+  const totalRooms = allRooms.length;
+  const totalBeds = allBeds.length;
+  const occupiedBeds = allBeds.filter((b) => bookedBedIds.has(b.id)).length;
+  const unavailableBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status !== 'AVAILABLE').length;
+  const vacantBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
 
   return (
     <div className="space-y-6">
@@ -68,6 +93,121 @@ export function OwnerDashboardPage() {
           <p className="mt-3 text-4xl font-bold text-emerald-300">{formatINR(d.netEarnings)}</p>
           <p className="mt-1 text-xs text-slate-400">Total settled &amp; accrued</p>
         </div>
+      </div>
+
+      {/* Rooms & Bed Occupancy Inventory */}
+      <div className="glass-panel rounded-2xl p-6 sm:p-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <BedDouble className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-white">Rooms &amp; Bed Inventory</h2>
+          </div>
+          <Link to="/owner/properties" className="text-sm font-medium text-cyan-300 hover:text-cyan-200">
+            Add or edit rooms
+          </Link>
+        </div>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/50 p-4">
+            <p className="text-sm text-slate-400">Total Rooms</p>
+            <p className="mt-1.5 text-2xl font-bold text-white">{totalRooms}</p>
+          </div>
+          <div className="rounded-xl border border-slate-800/80 bg-slate-900/50 p-4">
+            <p className="text-sm text-slate-400">Total Beds</p>
+            <p className="mt-1.5 text-2xl font-bold text-cyan-300">{totalBeds}</p>
+          </div>
+          <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+            <p className="text-sm text-emerald-200/80">Vacant Beds</p>
+            <p className="mt-1.5 text-2xl font-bold text-emerald-300">{vacantBeds}</p>
+          </div>
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-sm text-amber-200/80">Booked / Occupied Beds</p>
+            <p className="mt-1.5 text-2xl font-bold text-amber-300">
+              {occupiedBeds}
+              {unavailableBeds > 0 && (
+                <span className="ml-2 text-xs font-normal text-slate-400">
+                  (+{unavailableBeds} blocked)
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+
+        {properties.length > 0 && (
+          <div className="mt-5 space-y-3">
+            {properties.map((prop) => {
+              const rooms = prop.rooms ?? [];
+              const propBeds = rooms.flatMap((r) => r.beds ?? []);
+              const propOccupied = propBeds.filter((b) => bookedBedIds.has(b.id)).length;
+              const propVacant = propBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
+
+              return (
+                <div key={prop.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <DoorOpen className="h-4 w-4 text-indigo-300" />
+                      <span className="text-base font-semibold text-white">{prop.name}</span>
+                      <span className="text-xs text-slate-400">({prop.city})</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-slate-200">
+                        {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
+                      </span>
+                      <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 font-medium text-emerald-300">
+                        {propVacant} Vacant
+                      </span>
+                      <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 font-medium text-amber-300">
+                        {propOccupied} Booked
+                      </span>
+                    </div>
+                  </div>
+
+                  {rooms.length === 0 ? (
+                    <p className="mt-2 text-xs text-slate-400">
+                      No rooms added yet.{' '}
+                      <Link to="/owner/properties" className="text-cyan-300 hover:underline">
+                        Add rooms &amp; beds
+                      </Link>
+                    </p>
+                  ) : (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {rooms.map((room) => (
+                        <div key={room.id} className="rounded-lg border border-slate-800/90 bg-slate-950/70 p-3">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-200">
+                              Room {room.roomNumber} · {room.roomType}
+                            </span>
+                            <span className="text-slate-400">{room.beds?.length ?? 0} beds</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {(room.beds ?? []).map((bed) => {
+                              const isBooked = bookedBedIds.has(bed.id);
+                              const isMaint = !isBooked && bed.status !== 'AVAILABLE';
+                              return (
+                                <span
+                                  key={bed.id}
+                                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                                    isBooked
+                                      ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30'
+                                      : isMaint
+                                      ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                      : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                                  }`}
+                                >
+                                  Bed {bed.bedNumber} · {isBooked ? 'Occupied' : isMaint ? bed.status : 'Vacant'}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {a && (
