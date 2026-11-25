@@ -277,14 +277,17 @@ export function OwnerPropertiesPage() {
         : ownerApi.createProperty(payload);
     },
     onSuccess: (res) => {
+      const wasCreate = formMode === 'create';
       setCreatedProp(res);
       setTargetPropertyId(res.id);
+      setFormMode('edit');
+      setEditPropertyId(res.id);
       void qc.invalidateQueries({ queryKey: ['owner-properties'] });
       void qc.invalidateQueries({ queryKey: ['owner-dashboard'] });
       pushToast(
-        formMode === 'edit'
-          ? `Property updated (${res.id})`
-          : `Property created (${res.id}) — pending admin verification`,
+        wasCreate
+          ? `Property created (${res.id}) — pending admin verification`
+          : `Property updated (${res.id})`,
         'success',
       );
     },
@@ -333,7 +336,13 @@ export function OwnerPropertiesPage() {
               type="button"
               onClick={() => {
                 setFormMode('create');
+                setEditPropertyId('');
+                setCreatedProp(null);
+                setName('');
+                setAddress('');
+                setLocality('');
                 setLocationConfirmed(false);
+                setShowUnlockConfirm(false);
               }}
               className={`rounded-lg px-3 py-1.5 font-medium ${formMode === 'create' ? 'bg-indigo-600 text-white' : 'text-slate-300'}`}
             >
