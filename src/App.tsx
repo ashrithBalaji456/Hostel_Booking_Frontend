@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { CustomerOrPublicRoute, ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LandingPage } from './pages/public/LandingPage';
 import { SearchPage } from './pages/public/SearchPage';
 import { EmergencyStayPage } from './pages/public/EmergencyStayPage';
@@ -36,27 +36,35 @@ export function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppLayout />}>
-          {/* Public routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/emergency" element={<EmergencyStayPage />} />
-          <Route path="/interview-mode" element={<InterviewModePage />} />
-          <Route path="/properties/:propertyId" element={<PropertyDetailPage />} />
+          {/* Public & Customer-only discovery routes (isolated from Owner/Admin) */}
+          <Route element={<CustomerOrPublicRoute />}>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/emergency" element={<EmergencyStayPage />} />
+            <Route path="/interview-mode" element={<InterviewModePage />} />
+            <Route path="/properties/:propertyId" element={<PropertyDetailPage />} />
+          </Route>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
 
-          {/* Authenticated routes */}
-          <Route element={<ProtectedRoute />}>
+          {/* Customer-only booking & stay routes */}
+          <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
             <Route path="/checkout" element={<CheckoutPage />} />
+          </Route>
+
+          {/* Authenticated account routes */}
+          <Route element={<ProtectedRoute />}>
             <Route path="/account" element={<CustomerLayout />}>
-              <Route index element={<Navigate to="/account/bookings" replace />} />
+              <Route index element={<Navigate to="/account/profile" replace />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="bookings" element={<BookingsPage />} />
-              <Route path="bookings/:bookingId" element={<BookingDetailPage />} />
-              <Route path="favorites" element={<FavoritesPage />} />
+              <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
+                <Route path="bookings" element={<BookingsPage />} />
+                <Route path="bookings/:bookingId" element={<BookingDetailPage />} />
+                <Route path="favorites" element={<FavoritesPage />} />
+              </Route>
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="support" element={<SupportPage />} />
               <Route path="disputes" element={<DisputesPage />} />

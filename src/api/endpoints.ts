@@ -182,6 +182,7 @@ export const customerOpsApi = {
 export const ownerApi = {
   getDashboard: () => apiRequest<OwnerDashboardResponse>('/api/v1/owner/dashboard'),
   getAnalytics: () => apiRequest<OwnerAnalyticsResponse>('/api/v1/owner/analytics'),
+  listProperties: () => apiRequest<PropertyDetailResponse[]>('/api/v1/owner/properties'),
   createProperty: (body: Record<string, unknown>) =>
     apiRequest<PropertyDetailResponse>('/api/v1/owner/properties', { method: 'POST', body: JSON.stringify(body) }),
   updateProperty: (propertyId: string, body: Record<string, unknown>) =>

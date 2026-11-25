@@ -13,7 +13,7 @@ const LINKS = [
 
 export function CustomerLayout() {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-12">
         <aside className="glass-panel h-fit rounded-2xl p-3 lg:col-span-3" aria-label="Customer account navigation">
           <nav className="flex flex-wrap gap-1 lg:flex-col">

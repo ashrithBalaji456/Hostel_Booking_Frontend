@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { adminApi, paymentApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { formatINR } from '../../utils/format';
 
 export function AdminFinancePage() {
@@ -117,10 +118,15 @@ export function AdminCouponsPage() {
         <h1 className="text-xl font-bold text-white">Create Coupon</h1>
         <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="mt-4 grid gap-3 sm:grid-cols-4">
           <input required value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code (e.g. STUDENT10)" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-          <select value={discountType} onChange={(e) => setDiscountType(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
-            <option value="PERCENTAGE">Percentage</option>
-            <option value="FIXED">Fixed ₹</option>
-          </select>
+          <SelectDropdown
+            ariaLabel="Discount Type"
+            value={discountType}
+            onChange={(val) => setDiscountType(val)}
+            options={[
+              { value: 'PERCENTAGE', label: 'Percentage' },
+              { value: 'FIXED', label: 'Fixed ₹' },
+            ]}
+          />
           <input required type="number" value={discountValue} onChange={(e) => setDiscountValue(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           <button type="submit" className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">Create</button>
         </form>

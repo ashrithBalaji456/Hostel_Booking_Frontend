@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { InteractiveBedSelector } from '../../components/property/InteractiveBedSelector';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { defaultCheckInLocal, defaultCheckOutLocal, formatINR, toIsoUtc } from '../../utils/format';
 import type { AvailableBedInfo, StayType } from '../../types/api';
 
@@ -225,10 +226,17 @@ export function PropertyDetailPage() {
               </div>
               <div>
                 <label htmlFor="pd-stay" className="block text-xs text-slate-400">Stay Type</label>
-                <select id="pd-stay" value={stayType} onChange={(e) => setStayType(e.target.value as StayType)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
-                  <option value="SHORT_STAY">Short Stay (Min {p.minShortStayHours}h, Max {p.maxShortStayDays}d)</option>
-                  <option value="LONG_STAY">Long Stay (Min {p.minLongStayDays}d, Max {p.maxLongStayMonths}mo)</option>
-                </select>
+                <SelectDropdown
+                  id="pd-stay"
+                  ariaLabel="Stay Type"
+                  value={stayType}
+                  onChange={(val) => setStayType(val)}
+                  className="mt-1"
+                  options={[
+                    { value: 'SHORT_STAY', label: `Short Stay (Min ${p.minShortStayHours}h, Max ${p.maxShortStayDays}d)` },
+                    { value: 'LONG_STAY', label: `Long Stay (Min ${p.minLongStayDays}d, Max ${p.maxLongStayMonths}mo)` },
+                  ]}
+                />
               </div>
             </div>
           </div>

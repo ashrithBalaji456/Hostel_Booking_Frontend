@@ -4,6 +4,7 @@ import { ownerApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { formatINR, formatIST, toIsoUtc } from '../../utils/format';
 
 export function OwnerBookingsPage() {
@@ -61,13 +62,20 @@ export function OwnerBookingsPage() {
       {/* Bookings list */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-white">Property Bookings</h1>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white">
-          <option value="">All Statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="CONFIRMED">Confirmed</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
+        <SelectDropdown
+          ariaLabel="Filter bookings by status"
+          value={statusFilter}
+          onChange={(val) => setStatusFilter(val)}
+          className="w-44"
+          buttonClassName="text-xs"
+          options={[
+            { value: '', label: 'All Statuses' },
+            { value: 'PENDING', label: 'Pending' },
+            { value: 'CONFIRMED', label: 'Confirmed' },
+            { value: 'COMPLETED', label: 'Completed' },
+            { value: 'CANCELLED', label: 'Cancelled' },
+          ]}
+        />
       </div>
 
       {query.isLoading ? (

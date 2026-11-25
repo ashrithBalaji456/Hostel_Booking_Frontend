@@ -8,6 +8,7 @@ import { ApiClientError } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { formatINR, formatIST } from '../../utils/format';
 import type { BookingResponse, PaymentMethod, PaymentResponse, StayType } from '../../types/api';
 
@@ -212,17 +213,20 @@ export function CheckoutPage() {
             <div className="space-y-4">
               <div>
                 <label htmlFor="pay-method" className="block text-sm font-medium text-slate-200">Payment Method</label>
-                <select
+                <SelectDropdown
                   id="pay-method"
+                  ariaLabel="Payment Method"
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-sm text-white"
-                >
-                  <option value="UPI">UPI</option>
-                  <option value="CARD">Card</option>
-                  <option value="NETBANKING">NetBanking</option>
-                  <option value="WALLET">Wallet</option>
-                </select>
+                  onChange={(val) => setPaymentMethod(val)}
+                  className="mt-1"
+                  buttonClassName="py-2.5"
+                  options={[
+                    { value: 'UPI', label: 'UPI' },
+                    { value: 'CARD', label: 'Card' },
+                    { value: 'NETBANKING', label: 'NetBanking' },
+                    { value: 'WALLET', label: 'Wallet' },
+                  ]}
+                />
               </div>
               <div className="flex flex-wrap gap-3">
                 <button

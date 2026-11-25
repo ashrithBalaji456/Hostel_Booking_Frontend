@@ -1,8 +1,10 @@
-import { lazy, Suspense, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Crosshair, MapPin, Search } from 'lucide-react';
 import { ownerApi, propertyApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
+import { resolveCurrentLocation, reverseGeocode } from '../../utils/geolocation';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import type { GenderPolicy, PropertyDetailResponse, PropertyType, RoomType } from '../../types/api';
 
 const LocationPickerMap = lazy(() => import('../../components/map/LocationPickerMap'));
@@ -13,33 +15,127 @@ interface GeocodingSuggestion {
   lon: string;
 }
 
+const DRAFT_KEY = 'spatial_stay_owner_property_draft';
+
+interface PropertyDraft {
+  formMode: 'create' | 'edit';
+  editPropertyId: string;
+  targetPropertyId: string;
+  createdProp: PropertyDetailResponse | null;
+  name: string;
+  propertyType: PropertyType;
+  genderPolicy: GenderPolicy;
+  address: string;
+  locality: string;
+  city: string;
+  state: string;
+  pincode: string;
+  latitude: string;
+  longitude: string;
+  hourlyRate: string;
+  nightlyRate: string;
+  monthlyRate: string;
+  securityDeposit: string;
+  accuracyMeters: number | null;
+  locationConfirmed: boolean;
+}
+
+function readDraft(): Partial<PropertyDraft> {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY);
+    return raw ? (JSON.parse(raw) as Partial<PropertyDraft>) : {};
+  } catch {
+    return {};
+  }
+}
+
 export function OwnerPropertiesPage() {
   const { pushToast } = useToast();
-  const [formMode, setFormMode] = useState<'create' | 'edit'>('create');
-  const [editPropertyId, setEditPropertyId] = useState('');
+  const qc = useQueryClient();
+  const initialDraft = readDraft();
+  const myPropertiesQuery = useQuery({
+    queryKey: ['owner-properties'],
+    queryFn: ownerApi.listProperties,
+    retry: false,
+  });
+  const [formMode, setFormMode] = useState<'create' | 'edit'>(initialDraft.formMode ?? 'create');
+  const [editPropertyId, setEditPropertyId] = useState(initialDraft.editPropertyId ?? '');
   const [loadingExisting, setLoadingExisting] = useState(false);
 
-  const [createdProp, setCreatedProp] = useState<PropertyDetailResponse | null>(null);
-  const [targetPropertyId, setTargetPropertyId] = useState('');
+  const [createdProp, setCreatedProp] = useState<PropertyDetailResponse | null>(initialDraft.createdProp ?? null);
+  const [targetPropertyId, setTargetPropertyId] = useState(initialDraft.targetPropertyId ?? '');
 
   // Property fields
-  const [name, setName] = useState('');
-  const [propertyType, setPropertyType] = useState<PropertyType>('HOSTEL');
-  const [genderPolicy, setGenderPolicy] = useState<GenderPolicy>('CO_ED');
-  const [address, setAddress] = useState('');
-  const [locality, setLocality] = useState('');
-  const [city, setCity] = useState('Bengaluru');
-  const [state, setState] = useState('Karnataka');
-  const [pincode, setPincode] = useState('560038');
-  const [latitude, setLatitude] = useState('12.9716');
-  const [longitude, setLongitude] = useState('77.5946');
-  const [nightlyRate, setNightlyRate] = useState('500');
-  const [monthlyRate, setMonthlyRate] = useState('9000');
-  const [securityDeposit, setSecurityDeposit] = useState('2000');
+  const [name, setName] = useState(initialDraft.name ?? '');
+  const [propertyType, setPropertyType] = useState<PropertyType>(initialDraft.propertyType ?? 'HOSTEL');
+  const [genderPolicy, setGenderPolicy] = useState<GenderPolicy>(initialDraft.genderPolicy ?? 'CO_ED');
+  const [address, setAddress] = useState(initialDraft.address ?? '');
+  const [locality, setLocality] = useState(initialDraft.locality ?? '');
+  const [city, setCity] = useState(initialDraft.city ?? 'Bengaluru');
+  const [state, setState] = useState(initialDraft.state ?? 'Karnataka');
+  const [pincode, setPincode] = useState(initialDraft.pincode ?? '560038');
+  const [latitude, setLatitude] = useState(initialDraft.latitude ?? '12.9716');
+  const [longitude, setLongitude] = useState(initialDraft.longitude ?? '77.5946');
+  const [hourlyRate, setHourlyRate] = useState(initialDraft.hourlyRate ?? '120');
+  const [nightlyRate, setNightlyRate] = useState(initialDraft.nightlyRate ?? '500');
+  const [monthlyRate, setMonthlyRate] = useState(initialDraft.monthlyRate ?? '9000');
+  const [securityDeposit, setSecurityDeposit] = useState(initialDraft.securityDeposit ?? '2000');
 
   // Location capture & explicit confirmation state
-  const [accuracyMeters, setAccuracyMeters] = useState<number | null>(null);
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [accuracyMeters, setAccuracyMeters] = useState<number | null>(initialDraft.accuracyMeters ?? null);
+  const [locationConfirmed, setLocationConfirmed] = useState(initialDraft.locationConfirmed ?? false);
+  const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
+
+  useEffect(() => {
+    try {
+      const draft: PropertyDraft = {
+        formMode,
+        editPropertyId,
+        targetPropertyId,
+        createdProp,
+        name,
+        propertyType,
+        genderPolicy,
+        address,
+        locality,
+        city,
+        state,
+        pincode,
+        latitude,
+        longitude,
+        hourlyRate,
+        nightlyRate,
+        monthlyRate,
+        securityDeposit,
+        accuracyMeters,
+        locationConfirmed,
+      };
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // Ignore storage quota errors
+    }
+  }, [
+    formMode,
+    editPropertyId,
+    targetPropertyId,
+    createdProp,
+    name,
+    propertyType,
+    genderPolicy,
+    address,
+    locality,
+    city,
+    state,
+    pincode,
+    latitude,
+    longitude,
+    hourlyRate,
+    nightlyRate,
+    monthlyRate,
+    securityDeposit,
+    accuracyMeters,
+    locationConfirmed,
+  ]);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [geocodeQuery, setGeocodeQuery] = useState('');
@@ -67,6 +163,7 @@ export function OwnerPropertiesPage() {
       if (p.latitude != null) setLatitude(String(p.latitude));
       if (p.longitude != null) setLongitude(String(p.longitude));
       if (p.pricing) {
+        setHourlyRate(p.pricing.hourlyRate != null ? String(p.pricing.hourlyRate) : '');
         setNightlyRate(String(p.pricing.nightlyRate));
         setMonthlyRate(p.pricing.monthlyRate != null ? String(p.pricing.monthlyRate) : '');
         setSecurityDeposit(String(p.pricing.securityDeposit ?? 0));
@@ -82,32 +179,43 @@ export function OwnerPropertiesPage() {
     }
   };
 
-  const handleUseCurrentLocation = () => {
+  const fillAddressFromCoords = async (lat: number, lon: number, overwrite = false) => {
+    const rev = await reverseGeocode(lat, lon);
+    if (!rev) return;
+    if (rev.address && (overwrite || !address.trim())) setAddress(rev.address);
+    if (rev.locality && (overwrite || !locality.trim())) setLocality(rev.locality);
+    if (rev.city && (overwrite || !city.trim())) setCity(rev.city);
+    if (rev.state && (overwrite || !state.trim())) setState(rev.state);
+    if (rev.pincode && (overwrite || !pincode.trim())) setPincode(rev.pincode);
+  };
+
+  const handleUseCurrentLocation = async () => {
     setGeoError(null);
-    if (!('geolocation' in navigator)) {
-      setGeoError('Device geolocation is not supported in this browser. Search by address or place the pin manually.');
-      return;
-    }
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(String(Number(pos.coords.latitude.toFixed(6))));
-        setLongitude(String(Number(pos.coords.longitude.toFixed(6))));
-        setAccuracyMeters(pos.coords.accuracy ? Math.round(pos.coords.accuracy) : null);
-        setLocationConfirmed(false);
-        setGeoLoading(false);
-        pushToast('Location captured. Please review the map pin and confirm before saving.', 'info');
-      },
-      (err) => {
-        setGeoLoading(false);
-        if (err.code === err.PERMISSION_DENIED) {
-          setGeoError('Location permission was denied. Use address search below or drag/click the map pin manually.');
-        } else {
-          setGeoError('Unable to determine current location. Use address search below or place the pin manually.');
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
-    );
+    try {
+      const loc = await resolveCurrentLocation(true);
+      setLatitude(String(Number(loc.latitude.toFixed(6))));
+      setLongitude(String(Number(loc.longitude.toFixed(6))));
+      setAccuracyMeters(loc.accuracyMeters);
+      setLocationConfirmed(false);
+      void fillAddressFromCoords(loc.latitude, loc.longitude, true);
+      if (loc.source === 'ip') {
+        pushToast(
+          `GPS unavailable — centered map near ${loc.city || 'your network location'} and auto-filled address. Please adjust the exact pin and confirm.`,
+          'info',
+        );
+      } else {
+        pushToast('Location captured and address auto-filled. Please review the map pin and confirm before saving.', 'info');
+      }
+    } catch (err) {
+      if ((err as Error).message === 'PERMISSION_DENIED') {
+        setGeoError('Location permission was denied. Use address search below or drag/click the map pin manually.');
+      } else {
+        setGeoError('Unable to determine current location. Use address search below or place the pin manually.');
+      }
+    } finally {
+      setGeoLoading(false);
+    }
   };
 
   const handleGeocodeSearch = async () => {
@@ -137,6 +245,7 @@ export function OwnerPropertiesPage() {
     setLongitude(String(lng));
     setAccuracyMeters(null);
     setLocationConfirmed(false);
+    void fillAddressFromCoords(lat, lng, false);
   };
 
   const savePropertyMutation = useMutation({
@@ -155,6 +264,7 @@ export function OwnerPropertiesPage() {
         instantBookingEnabled: true,
         amenityCodes: ['WIFI', 'LOCKER'],
         pricing: {
+          hourlyRate: hourlyRate ? Number(hourlyRate) : undefined,
           nightlyRate: Number(nightlyRate),
           monthlyRate: monthlyRate ? Number(monthlyRate) : undefined,
           securityDeposit: Number(securityDeposit || 0),
@@ -169,6 +279,8 @@ export function OwnerPropertiesPage() {
     onSuccess: (res) => {
       setCreatedProp(res);
       setTargetPropertyId(res.id);
+      void qc.invalidateQueries({ queryKey: ['owner-properties'] });
+      void qc.invalidateQueries({ queryKey: ['owner-dashboard'] });
       pushToast(
         formMode === 'edit'
           ? `Property updated (${res.id})`
@@ -267,27 +379,76 @@ export function OwnerPropertiesPage() {
           }}
           className="mt-4 space-y-4"
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Property Name" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <select value={propertyType} onChange={(e) => setPropertyType(e.target.value as PropertyType)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
-              <option value="HOSTEL">Hostel</option>
-              <option value="PG">PG</option>
-              <option value="DORMITORY">Dormitory</option>
-              <option value="CO_LIVING">Co-Living</option>
-            </select>
-            <input required value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street Address" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white sm:col-span-2" />
-            <input value={locality} onChange={(e) => setLocality(e.target.value)} placeholder="Locality" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <input required value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <input required value={state} onChange={(e) => setState(e.target.value)} placeholder="State" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <input required value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="Pincode (6 digits)" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <select value={genderPolicy} onChange={(e) => setGenderPolicy(e.target.value as GenderPolicy)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
-              <option value="CO_ED">Co-Ed</option>
-              <option value="MALE_ONLY">Male Only</option>
-              <option value="FEMALE_ONLY">Female Only</option>
-            </select>
-            <input required type="number" value={nightlyRate} onChange={(e) => setNightlyRate(e.target.value)} placeholder="Nightly Rate ₹" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <input type="number" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="Monthly Rate ₹" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-            <input type="number" value={securityDeposit} onChange={(e) => setSecurityDeposit(e.target.value)} placeholder="Security Deposit ₹" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="prop-name" className="mb-1 block text-xs font-medium text-slate-300">Property Name</label>
+              <input id="prop-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Zolo Indiranagar Hub" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-type" className="mb-1 block text-xs font-medium text-slate-300">Property Type</label>
+              <SelectDropdown
+                id="prop-type"
+                ariaLabel="Property Type"
+                value={propertyType}
+                onChange={(val) => setPropertyType(val)}
+                options={[
+                  { value: 'HOSTEL', label: 'Hostel' },
+                  { value: 'PG', label: 'PG' },
+                  { value: 'DORMITORY', label: 'Dormitory' },
+                  { value: 'CO_LIVING', label: 'Co-Living' },
+                ]}
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="prop-address" className="mb-1 block text-xs font-medium text-slate-300">Street Address</label>
+              <input id="prop-address" required value={address} onChange={(e) => setAddress(e.target.value)} placeholder="House/Plot No., Street, Landmark" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-locality" className="mb-1 block text-xs font-medium text-slate-300">Locality / Area</label>
+              <input id="prop-locality" value={locality} onChange={(e) => setLocality(e.target.value)} placeholder="e.g. Indiranagar" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-city" className="mb-1 block text-xs font-medium text-slate-300">City</label>
+              <input id="prop-city" required value={city} onChange={(e) => setCity(e.target.value)} placeholder="e.g. Bengaluru" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-state" className="mb-1 block text-xs font-medium text-slate-300">State</label>
+              <input id="prop-state" required value={state} onChange={(e) => setState(e.target.value)} placeholder="e.g. Karnataka" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-pincode" className="mb-1 block text-xs font-medium text-slate-300">Pincode (6 digits)</label>
+              <input id="prop-pincode" required value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="e.g. 560038" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-gender" className="mb-1 block text-xs font-medium text-slate-300">Gender Policy</label>
+              <SelectDropdown
+                id="prop-gender"
+                ariaLabel="Gender Policy"
+                value={genderPolicy}
+                onChange={(val) => setGenderPolicy(val)}
+                options={[
+                  { value: 'CO_ED', label: 'Co-Ed' },
+                  { value: 'MALE_ONLY', label: 'Male Only' },
+                  { value: 'FEMALE_ONLY', label: 'Female Only' },
+                ]}
+              />
+            </div>
+            <div>
+              <label htmlFor="prop-hourly" className="mb-1 block text-xs font-medium text-slate-300">Hourly Rate (₹ / hour)</label>
+              <input id="prop-hourly" type="number" min="0" value={hourlyRate} onChange={(e) => setHourlyRate(e.target.value)} placeholder="e.g. 120" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-nightly" className="mb-1 block text-xs font-medium text-slate-300">Nightly Rate (₹ / night)</label>
+              <input id="prop-nightly" required type="number" min="0" value={nightlyRate} onChange={(e) => setNightlyRate(e.target.value)} placeholder="e.g. 500" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-monthly" className="mb-1 block text-xs font-medium text-slate-300">Monthly Rate (₹ / month)</label>
+              <input id="prop-monthly" type="number" min="0" value={monthlyRate} onChange={(e) => setMonthlyRate(e.target.value)} placeholder="e.g. 9000" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-deposit" className="mb-1 block text-xs font-medium text-slate-300">Security Deposit (₹)</label>
+              <input id="prop-deposit" type="number" min="0" value={securityDeposit} onChange={(e) => setSecurityDeposit(e.target.value)} placeholder="e.g. 2000" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
           </div>
 
           {/* Location Capture & Confirmation Section */}
@@ -303,9 +464,9 @@ export function OwnerPropertiesPage() {
               </div>
               <button
                 type="button"
-                disabled={geoLoading}
+                disabled={geoLoading || locationConfirmed}
                 onClick={handleUseCurrentLocation}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Crosshair className="h-3.5 w-3.5" />
                 {geoLoading ? 'Capturing...' : 'Use current location'}
@@ -322,15 +483,16 @@ export function OwnerPropertiesPage() {
             <div className="flex flex-wrap gap-2">
               <input
                 value={geocodeQuery}
+                disabled={locationConfirmed}
                 onChange={(e) => setGeocodeQuery(e.target.value)}
                 placeholder="Search address / landmark (e.g. Indiranagar Metro, Bengaluru)"
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white disabled:opacity-60"
               />
               <button
                 type="button"
-                disabled={geocodingLoading}
+                disabled={geocodingLoading || locationConfirmed}
                 onClick={() => void handleGeocodeSearch()}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Search className="h-3.5 w-3.5" />
                 {geocodingLoading ? 'Searching...' : 'Find on Map'}
@@ -364,6 +526,7 @@ export function OwnerPropertiesPage() {
                 <input
                   id="prop-lat"
                   required
+                  disabled={locationConfirmed}
                   type="number"
                   step="any"
                   min="-90"
@@ -373,7 +536,7 @@ export function OwnerPropertiesPage() {
                     setLatitude(e.target.value);
                     setLocationConfirmed(false);
                   }}
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
               <div>
@@ -381,6 +544,7 @@ export function OwnerPropertiesPage() {
                 <input
                   id="prop-lng"
                   required
+                  disabled={locationConfirmed}
                   type="number"
                   step="any"
                   min="-180"
@@ -390,7 +554,7 @@ export function OwnerPropertiesPage() {
                     setLongitude(e.target.value);
                     setLocationConfirmed(false);
                   }}
-                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-60"
                 />
               </div>
             </div>
@@ -407,30 +571,83 @@ export function OwnerPropertiesPage() {
                   latitude={parsedLat}
                   longitude={parsedLng}
                   accuracyMeters={accuracyMeters}
+                  locked={locationConfirmed}
+                  onLockedAttempt={() => setShowUnlockConfirm(true)}
                   onChangeLocation={handlePinMoved}
                 />
               </Suspense>
             )}
 
+            {showUnlockConfirm && locationConfirmed && (
+              <div
+                role="dialog"
+                aria-label="Confirm pin unlock"
+                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-3.5 text-xs text-amber-100"
+              >
+                <p className="font-medium">
+                  Location pin is currently locked. Are you sure you want to unlock it to change the property coordinates?
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowUnlockConfirm(false)}
+                    className="rounded-xl border border-slate-600 bg-slate-900 px-3 py-1.5 font-medium text-slate-200 hover:bg-slate-800"
+                  >
+                    Keep Locked
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLocationConfirmed(false);
+                      setShowUnlockConfirm(false);
+                    }}
+                    className="rounded-xl bg-amber-500 px-3 py-1.5 font-semibold text-slate-950 hover:bg-amber-400"
+                  >
+                    Confirm Unlock
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
               <span className={`text-xs font-medium ${locationConfirmed ? 'text-emerald-300' : 'text-amber-300'}`}>
                 {locationConfirmed
-                  ? '✓ Pin location confirmed for saving'
+                  ? '✓ Pin location confirmed and locked'
                   : 'Pin location is unconfirmed — please confirm before saving'}
               </span>
-              <button
-                type="button"
-                disabled={!coordsValid}
-                onClick={() => setLocationConfirmed(true)}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-semibold ${
-                  locationConfirmed
-                    ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-emerald-600 text-white hover:bg-emerald-500'
-                }`}
-              >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                {locationConfirmed ? 'Location Confirmed' : 'Confirm Pin Location'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  disabled={!coordsValid || locationConfirmed}
+                  onClick={() => void fillAddressFromCoords(parsedLat, parsedLng, true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Fill address from pin
+                </button>
+                {locationConfirmed ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowUnlockConfirm(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-600/20 px-4 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-600/30"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Location Locked (Change Pin)
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={!coordsValid}
+                    onClick={() => {
+                      setLocationConfirmed(true);
+                      setShowUnlockConfirm(false);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Confirm Pin Location
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -456,25 +673,66 @@ export function OwnerPropertiesPage() {
 
       <div className="glass-panel rounded-2xl p-6">
         <h2 className="text-lg font-bold text-white">Add Room &amp; Auto-Create Beds</h2>
+        <p className="mt-1 text-xs text-slate-400">
+          Select a property you created above (its UUID auto-fills after creating a property) or paste a Property UUID.
+        </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             addRoomMutation.mutate();
           }}
-          className="mt-4 grid gap-3 sm:grid-cols-4"
+          className="mt-4 grid gap-4 sm:grid-cols-4"
         >
-          <input required value={targetPropertyId} onChange={(e) => setTargetPropertyId(e.target.value)} placeholder="Property UUID" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white sm:col-span-2" />
-          <input required value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="Room # (e.g. 101)" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-          <select value={roomType} onChange={(e) => setRoomType(e.target.value as RoomType)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
-            <option value="SINGLE">Single</option>
-            <option value="DOUBLE">Double</option>
-            <option value="TRIPLE">Triple</option>
-            <option value="DORMITORY">Dormitory</option>
-          </select>
-          <input required type="number" min="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="Bed Capacity" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-          <button type="submit" disabled={addRoomMutation.isPending} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
-            Add Room + Beds
-          </button>
+          {myPropertiesQuery.data && myPropertiesQuery.data.length > 0 && (
+            <div className="sm:col-span-4">
+              <label htmlFor="room-prop-select" className="mb-1 block text-xs font-medium text-slate-300">
+                Select Your Property
+              </label>
+              <SelectDropdown
+                id="room-prop-select"
+                ariaLabel="Select Your Property"
+                value={targetPropertyId}
+                placeholder="Choose a property…"
+                onChange={(val) => setTargetPropertyId(val)}
+                options={myPropertiesQuery.data.map((prop) => ({
+                  value: prop.id,
+                  label: `${prop.name} · ${prop.city}`,
+                }))}
+              />
+            </div>
+          )}
+          <div className="sm:col-span-2">
+            <label htmlFor="room-prop-uuid" className="mb-1 block text-xs font-medium text-slate-300">Property UUID</label>
+            <input id="room-prop-uuid" required value={targetPropertyId} onChange={(e) => setTargetPropertyId(e.target.value)} placeholder="Auto-filled after creating a property" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+          </div>
+          <div>
+            <label htmlFor="room-number" className="mb-1 block text-xs font-medium text-slate-300">Room Number</label>
+            <input id="room-number" required value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="e.g. 101" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+          </div>
+          <div>
+            <label htmlFor="room-type" className="mb-1 block text-xs font-medium text-slate-300">Room Type</label>
+            <SelectDropdown
+              id="room-type"
+              ariaLabel="Room Type"
+              value={roomType}
+              onChange={(val) => setRoomType(val)}
+              options={[
+                { value: 'SINGLE', label: 'Single' },
+                { value: 'DOUBLE', label: 'Double' },
+                { value: 'TRIPLE', label: 'Triple' },
+                { value: 'DORMITORY', label: 'Dormitory' },
+              ]}
+            />
+          </div>
+          <div>
+            <label htmlFor="room-capacity" className="mb-1 block text-xs font-medium text-slate-300">Bed Capacity</label>
+            <input id="room-capacity" required type="number" min="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 2" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+          </div>
+          <div className="flex items-end">
+            <button type="submit" disabled={addRoomMutation.isPending} className="w-full rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white hover:bg-cyan-500">
+              Add Room + Beds
+            </button>
+          </div>
         </form>
       </div>
     </div>

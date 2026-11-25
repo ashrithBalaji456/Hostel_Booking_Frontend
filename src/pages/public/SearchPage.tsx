@@ -5,6 +5,7 @@ import { Filter, List, Map as MapIcon, Search } from 'lucide-react';
 import { propertyApi } from '../../api/endpoints';
 import { PropertyCard } from '../../components/property/PropertyCard';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { ApiClientError } from '../../api/client';
 
 const PropertyMap = lazy(() => import('../../components/map/PropertyMap'));
@@ -103,17 +104,19 @@ export function SearchPage() {
           </div>
           <div className="flex items-center gap-2">
             <label htmlFor="sortBy" className="text-xs text-slate-400">Sort by</label>
-          <select
-            id="sortBy"
-            value={paramsObj.sortBy}
-            onChange={(e) => updateParam('sortBy', e.target.value)}
-            className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
-          >
-            <option value="price_asc">Price: Low to High</option>
-            <option value="price_desc">Price: High to Low</option>
-            <option value="rating">Top Rated</option>
-            <option value="distance">Distance</option>
-          </select>
+            <SelectDropdown
+              id="sortBy"
+              ariaLabel="Sort by"
+              value={paramsObj.sortBy}
+              onChange={(val) => updateParam('sortBy', val)}
+              className="w-48"
+              options={[
+                { value: 'price_asc', label: 'Price: Low to High' },
+                { value: 'price_desc', label: 'Price: High to Low' },
+                { value: 'rating', label: 'Top Rated' },
+                { value: 'distance', label: 'Distance' },
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -140,30 +143,51 @@ export function SearchPage() {
             </div>
             <div>
               <label htmlFor="f-stay" className="block text-xs text-slate-400">Stay Type</label>
-              <select id="f-stay" value={paramsObj.stayType} onChange={(e) => updateParam('stayType', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
-                <option value="">Any Stay Type</option>
-                <option value="SHORT_STAY">Short Stay</option>
-                <option value="LONG_STAY">Long Stay</option>
-              </select>
+              <SelectDropdown
+                id="f-stay"
+                ariaLabel="Stay Type"
+                value={paramsObj.stayType}
+                onChange={(val) => updateParam('stayType', val)}
+                className="mt-1"
+                options={[
+                  { value: '', label: 'Any Stay Type' },
+                  { value: 'SHORT_STAY', label: 'Short Stay' },
+                  { value: 'LONG_STAY', label: 'Long Stay' },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="f-ptype" className="block text-xs text-slate-400">Property Type</label>
-              <select id="f-ptype" value={paramsObj.propertyType} onChange={(e) => updateParam('propertyType', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
-                <option value="">All Types</option>
-                <option value="HOSTEL">Hostel</option>
-                <option value="PG">PG</option>
-                <option value="DORMITORY">Dormitory</option>
-                <option value="CO_LIVING">Co-Living</option>
-              </select>
+              <SelectDropdown
+                id="f-ptype"
+                ariaLabel="Property Type"
+                value={paramsObj.propertyType}
+                onChange={(val) => updateParam('propertyType', val)}
+                className="mt-1"
+                options={[
+                  { value: '', label: 'All Types' },
+                  { value: 'HOSTEL', label: 'Hostel' },
+                  { value: 'PG', label: 'PG' },
+                  { value: 'DORMITORY', label: 'Dormitory' },
+                  { value: 'CO_LIVING', label: 'Co-Living' },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="f-gender" className="block text-xs text-slate-400">Gender Policy</label>
-              <select id="f-gender" value={paramsObj.genderPolicy} onChange={(e) => updateParam('genderPolicy', e.target.value)} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white">
-                <option value="">Any Policy</option>
-                <option value="MALE_ONLY">Male Only</option>
-                <option value="FEMALE_ONLY">Female Only</option>
-                <option value="CO_ED">Co-Ed</option>
-              </select>
+              <SelectDropdown
+                id="f-gender"
+                ariaLabel="Gender Policy"
+                value={paramsObj.genderPolicy}
+                onChange={(val) => updateParam('genderPolicy', val)}
+                className="mt-1"
+                options={[
+                  { value: '', label: 'Any Policy' },
+                  { value: 'MALE_ONLY', label: 'Male Only' },
+                  { value: 'FEMALE_ONLY', label: 'Female Only' },
+                  { value: 'CO_ED', label: 'Co-Ed' },
+                ]}
+              />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>

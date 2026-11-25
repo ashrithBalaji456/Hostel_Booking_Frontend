@@ -6,7 +6,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiRequest, ApiClientError, buildQuery, tokenStorage } from '../api/client';
 import { AuthProvider } from '../context/AuthContext';
 import { ToastProvider } from '../context/ToastContext';
-import { ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { CustomerOrPublicRoute, ProtectedRoute } from '../components/auth/ProtectedRoute';
+import { AppLayout } from '../components/layout/AppLayout';
 import { LoginPage } from '../pages/auth/LoginPage';
 import { InteractiveBedSelector } from '../components/property/InteractiveBedSelector';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -38,6 +39,7 @@ function renderWithProviders(ui: React.ReactElement, initialRoute = '/') {
 describe('Spatial Stay Frontend', () => {
   beforeEach(() => {
     localStorage.clear();
+    sessionStorage.clear();
     vi.restoreAllMocks();
   });
 
@@ -247,5 +249,39 @@ describe('Spatial Stay Frontend', () => {
 
     await user.click(screen.getByRole('button', { name: /search stays/i }));
     expect(await screen.findByText(/enter a city or tap "use my location"/i)).toBeInTheDocument();
+  });
+
+  it('isolates PROPERTY_OWNER from customer discovery routes and customer navbar links', () => {
+    tokenStorage.setSession({
+      accessToken: 'jwt-owner',
+      refreshToken: 'ref-owner',
+      expiresInMs: 900000,
+      user: {
+        id: 'o1',
+        fullName: 'Owner User',
+        email: 'owner@spatialstay.in',
+        phoneNumber: '9876543210',
+        role: 'PROPERTY_OWNER',
+        emailVerified: true,
+      },
+    });
+
+    renderWithProviders(
+      <Routes>
+        <Route element={<AppLayout />}>
+          <Route element={<CustomerOrPublicRoute />}>
+            <Route path="/search" element={<div>Customer Search</div>} />
+          </Route>
+          <Route element={<ProtectedRoute allowedRoles={['PROPERTY_OWNER']} />}>
+            <Route path="/owner" element={<div>Owner Workspace</div>} />
+          </Route>
+        </Route>
+      </Routes>,
+      '/search',
+    );
+
+    expect(screen.getByText('Owner Workspace')).toBeInTheDocument();
+    expect(screen.queryByText(/emergency stay/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/interview mode/i)).not.toBeInTheDocument();
   });
 });

@@ -56,9 +56,12 @@ export default function PropertyMap({
     const map = L.map(containerRef.current).setView(defaultCenter, 13);
     mapRef.current = map;
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap contributors',
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+      subdomains: 'abcd',
       maxZoom: 19,
+      updateWhenIdle: false,
+      keepBuffer: 4,
     }).addTo(map);
 
     const bounds = L.latLngBounds([]);
@@ -104,7 +107,20 @@ export default function PropertyMap({
       map.fitBounds(bounds, { padding: [36, 36], maxZoom: 15 });
     }
 
+    const timer = window.setTimeout(() => {
+      map.invalidateSize({ pan: false });
+    }, 120);
+    const observer =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            map.invalidateSize({ pan: false });
+          })
+        : null;
+    observer?.observe(containerRef.current);
+
     return () => {
+      window.clearTimeout(timer);
+      observer?.disconnect();
       map.remove();
       mapRef.current = null;
     };

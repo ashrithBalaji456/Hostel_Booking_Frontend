@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { Briefcase, CalendarClock, Clock, Compass, Crosshair, List, ShieldCheck, Zap } from 'lucide-react';
 import { propertyApi } from '../../api/endpoints';
 import { PropertyCard } from '../../components/property/PropertyCard';
+import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { buildHeroBedSlots } from '../../utils/heroBeds';
+import { resolveCurrentLocation } from '../../utils/geolocation';
 import { defaultCheckInLocal, defaultCheckOutLocal, formatINR, formatIST, toIsoUtc } from '../../utils/format';
 import type { PropertySearchItemResponse } from '../../types/api';
 
@@ -57,28 +59,25 @@ export function LandingPage() {
   const heroBedSlots = buildHeroBedSlots(previewDetailQuery.data?.rooms, previewAvailQuery.data?.availableBeds);
   const selectedBedSlot = heroBedSlots.find((b) => b.bedId === selectedBedId) ?? null;
 
-  const handleUseMyLocation = () => {
+  const handleUseMyLocation = async () => {
     setGeoError(null);
-    if (!('geolocation' in navigator)) {
-      setGeoError('Geolocation not supported in this browser. Enter a city name instead.');
-      return;
-    }
     setGeoLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setCoords({
-          lat: Number(pos.coords.latitude.toFixed(5)),
-          lon: Number(pos.coords.longitude.toFixed(5)),
-        });
-        setCity('');
-        setGeoLoading(false);
-      },
-      () => {
-        setGeoLoading(false);
+    try {
+      const loc = await resolveCurrentLocation(false);
+      setCoords({
+        lat: Number(loc.latitude.toFixed(5)),
+        lon: Number(loc.longitude.toFixed(5)),
+      });
+      setCity(loc.source === 'ip' && loc.city ? loc.city : '');
+    } catch (err) {
+      if ((err as Error).message === 'PERMISSION_DENIED') {
         setGeoError('Location permission denied. Enter your destination city instead.');
-      },
-      { enableHighAccuracy: false, timeout: 8000 },
-    );
+      } else {
+        setGeoError('Unable to detect current location. Enter your destination city instead.');
+      }
+    } finally {
+      setGeoLoading(false);
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
@@ -206,15 +205,16 @@ export function LandingPage() {
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3 sm:flex-nowrap">
                   <div className="w-full shrink-0 sm:w-52">
                     <label htmlFor="hero-staytype" className="sr-only">Stay Type</label>
-                    <select
+                    <SelectDropdown
                       id="hero-staytype"
+                      ariaLabel="Stay Type"
                       value={stayType}
-                      onChange={(e) => setStayType(e.target.value as 'SHORT_STAY' | 'LONG_STAY')}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
-                    >
-                      <option value="SHORT_STAY">Short Stay (Hours/Days)</option>
-                      <option value="LONG_STAY">Long Stay (Weeks/Months)</option>
-                    </select>
+                      onChange={(val) => setStayType(val)}
+                      options={[
+                        { value: 'SHORT_STAY', label: 'Short Stay (Hours/Days)' },
+                        { value: 'LONG_STAY', label: 'Long Stay (Weeks/Months)' },
+                      ]}
+                    />
                   </div>
                   <p className="min-w-0 truncate text-xs text-slate-300">
                     Searching:{' '}
