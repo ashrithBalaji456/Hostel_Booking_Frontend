@@ -89,6 +89,7 @@ export function OwnerAvailabilityPage() {
       );
       void qc.invalidateQueries({ queryKey: ['bed-blocks', activeBedForBlocks] });
       void qc.invalidateQueries({ queryKey: ['owner-properties'] });
+      void qc.invalidateQueries({ queryKey: ['owner-all-bed-blocks'] });
     },
     onError: (e: Error) => pushToast(e.message, 'error'),
   });
@@ -98,6 +99,7 @@ export function OwnerAvailabilityPage() {
     onSuccess: () => {
       pushToast('Block removed', 'info');
       void qc.invalidateQueries({ queryKey: ['bed-blocks', activeBedForBlocks] });
+      void qc.invalidateQueries({ queryKey: ['owner-all-bed-blocks'] });
     },
   });
 

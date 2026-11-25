@@ -37,11 +37,38 @@ export function OwnerDashboardPage() {
 
   const allRooms = properties.flatMap((p) => p.rooms ?? []);
   const allBeds = allRooms.flatMap((r) => r.beds ?? []);
+  const allBedIds = allBeds.map((b) => b.id);
+  const bedBlocksQuery = useQuery({
+    queryKey: ['owner-all-bed-blocks', allBedIds.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        allBedIds.map(async (id) => ({
+          id,
+          blocks: await ownerApi.getBlocksForBed(id).catch(() => []),
+        })),
+      );
+      const blocked = new Set<string>();
+      for (const item of results) {
+        if (
+          item.blocks.some(
+            (blk) => new Date(blk.startTime).getTime() <= nowMs + 60_000 && new Date(blk.endTime).getTime() > nowMs,
+          )
+        ) {
+          blocked.add(item.id);
+        }
+      }
+      return Array.from(blocked);
+    },
+    enabled: allBedIds.length > 0,
+    retry: false,
+  });
+  const blockedBedIds = new Set(bedBlocksQuery.data ?? []);
+
   const totalRooms = allRooms.length;
   const totalBeds = allBeds.length;
   const occupiedBeds = allBeds.filter((b) => bookedBedIds.has(b.id)).length;
-  const unavailableBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status !== 'AVAILABLE').length;
-  const vacantBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
+  const unavailableBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && (b.status !== 'AVAILABLE' || blockedBedIds.has(b.id))).length;
+  const vacantBeds = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE' && !blockedBedIds.has(b.id)).length;
 
   return (
     <div className="space-y-6">
@@ -140,7 +167,7 @@ export function OwnerDashboardPage() {
               const rooms = prop.rooms ?? [];
               const propBeds = rooms.flatMap((r) => r.beds ?? []);
               const propOccupied = propBeds.filter((b) => bookedBedIds.has(b.id)).length;
-              const propVacant = propBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
+              const propVacant = propBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE' && !blockedBedIds.has(b.id)).length;
 
               return (
                 <div key={prop.id} className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
@@ -183,7 +210,7 @@ export function OwnerDashboardPage() {
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             {(room.beds ?? []).map((bed) => {
                               const isBooked = bookedBedIds.has(bed.id);
-                              const isMaint = !isBooked && bed.status !== 'AVAILABLE';
+                              const isMaint = !isBooked && (bed.status !== 'AVAILABLE' || blockedBedIds.has(bed.id));
                               return (
                                 <span
                                   key={bed.id}
@@ -191,11 +218,11 @@ export function OwnerDashboardPage() {
                                     isBooked
                                       ? 'bg-amber-500/20 text-amber-200 border border-amber-500/30'
                                       : isMaint
-                                      ? 'bg-slate-800 text-slate-400 border border-slate-700'
+                                      ? 'bg-slate-800 text-slate-300 border border-slate-700'
                                       : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                                   }`}
                                 >
-                                  Bed {bed.bedNumber} · {isBooked ? 'Occupied' : isMaint ? bed.status : 'Vacant'}
+                                  Bed {bed.bedNumber} · {isBooked ? 'Occupied' : isMaint ? (blockedBedIds.has(bed.id) ? 'Blocked' : bed.status) : 'Vacant'}
                                 </span>
                               );
                             })}

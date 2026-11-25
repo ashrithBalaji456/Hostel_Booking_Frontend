@@ -619,6 +619,7 @@ export function OwnerAnalyticsCharts({
 interface PieChart3DCardProps {
   properties: PropertyDetailResponse[];
   bookings: BookingResponse[];
+  blockedBedIds?: Set<string>;
   dashboard?: OwnerDashboardResponse;
   analytics?: OwnerAnalyticsResponse;
 }
@@ -630,6 +631,7 @@ interface PieChart3DCardProps {
 export function PieChart3DCard({
   properties,
   bookings,
+  blockedBedIds,
   dashboard,
   analytics,
 }: PieChart3DCardProps) {
@@ -644,8 +646,8 @@ export function PieChart3DCard({
   );
   const allBeds = properties.flatMap((p) => (p.rooms ?? []).flatMap((r) => r.beds ?? []));
   const occupied = allBeds.filter((b) => bookedBedIds.has(b.id)).length;
-  const blocked = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status !== 'AVAILABLE').length;
-  const vacant = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE').length;
+  const blocked = allBeds.filter((b) => !bookedBedIds.has(b.id) && (b.status !== 'AVAILABLE' || blockedBedIds?.has(b.id))).length;
+  const vacant = allBeds.filter((b) => !bookedBedIds.has(b.id) && b.status === 'AVAILABLE' && !blockedBedIds?.has(b.id)).length;
 
   const avgHourly = properties.length
     ? Math.round(properties.reduce((s, p) => s + (p.pricing?.hourlyRate ?? 0), 0) / properties.length)

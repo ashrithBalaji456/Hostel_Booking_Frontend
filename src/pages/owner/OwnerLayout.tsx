@@ -23,6 +23,35 @@ export function OwnerLayout() {
     retry: false,
   });
 
+  const properties = propertiesQuery.data ?? [];
+  const allBedIds = properties.flatMap((p) => (p.rooms ?? []).flatMap((r) => (r.beds ?? []).map((b) => b.id)));
+  const bedBlocksQuery = useQuery({
+    queryKey: ['owner-all-bed-blocks', allBedIds.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        allBedIds.map(async (id) => ({
+          id,
+          blocks: await ownerApi.getBlocksForBed(id).catch(() => []),
+        })),
+      );
+      const nowMs = Date.now();
+      const blocked = new Set<string>();
+      for (const item of results) {
+        if (
+          item.blocks.some(
+            (blk) => new Date(blk.startTime).getTime() <= nowMs + 60_000 && new Date(blk.endTime).getTime() > nowMs,
+          )
+        ) {
+          blocked.add(item.id);
+        }
+      }
+      return Array.from(blocked);
+    },
+    enabled: allBedIds.length > 0,
+    retry: false,
+  });
+  const blockedBedIds = new Set(bedBlocksQuery.data ?? []);
+
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-12">
@@ -32,7 +61,36 @@ export function OwnerLayout() {
             <nav className="flex flex-wrap gap-1.5 lg:flex-col">
               {LINKS.map((item) => {
                 const Icon = item.icon;
-                return (
+                const properties = propertiesQuery.data ?? [];
+  const allBedIds = properties.flatMap((p) => (p.rooms ?? []).flatMap((r) => (r.beds ?? []).map((b) => b.id)));
+  const bedBlocksQuery = useQuery({
+    queryKey: ['owner-all-bed-blocks', allBedIds.join(',')],
+    queryFn: async () => {
+      const results = await Promise.all(
+        allBedIds.map(async (id) => ({
+          id,
+          blocks: await ownerApi.getBlocksForBed(id).catch(() => []),
+        })),
+      );
+      const nowMs = Date.now();
+      const blocked = new Set<string>();
+      for (const item of results) {
+        if (
+          item.blocks.some(
+            (blk) => new Date(blk.startTime).getTime() <= nowMs + 60_000 && new Date(blk.endTime).getTime() > nowMs,
+          )
+        ) {
+          blocked.add(item.id);
+        }
+      }
+      return Array.from(blocked);
+    },
+    enabled: allBedIds.length > 0,
+    retry: false,
+  });
+  const blockedBedIds = new Set(bedBlocksQuery.data ?? []);
+
+  return (
                   <NavLink
                     key={item.to}
                     to={item.to}
@@ -52,8 +110,9 @@ export function OwnerLayout() {
           </aside>
 
           <PieChart3DCard
-            properties={propertiesQuery.data ?? []}
+            properties={properties}
             bookings={bookingsQuery.data?.content ?? []}
+            blockedBedIds={blockedBedIds}
             dashboard={dashQuery.data}
             analytics={analyticsQuery.data}
           />
