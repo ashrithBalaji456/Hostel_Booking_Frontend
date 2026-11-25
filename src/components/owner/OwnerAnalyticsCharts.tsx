@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BarChart3, PieChart, Activity, Radar } from 'lucide-react';
+import { BarChart3, IndianRupee, PieChart, Activity, Radar } from 'lucide-react';
 import type {
   BookingResponse,
   OwnerAnalyticsResponse,
@@ -32,6 +32,96 @@ interface ChartDatum {
 const GLASS_CARD =
   'group rounded-2xl border border-white/10 bg-white/[0.03] p-6 backdrop-blur-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_50px_-15px_rgba(0,0,0,0.6)] transition-all duration-300 hover:-translate-y-1.5 hover:border-cyan-400/45 hover:bg-white/[0.05] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_24px_60px_-12px_rgba(34,211,238,0.18)]';
 
+interface GlassBar3DSvgProps {
+  data: ChartDatum[];
+  gradPrefix: string;
+  hoveredIdx: number | null;
+  onHover: (idx: number | null) => void;
+  ariaLabel: string;
+}
+
+function GlassBar3DSvg({ data, gradPrefix, hoveredIdx, onHover, ariaLabel }: GlassBar3DSvgProps) {
+  const safeData =
+    data.length > 0
+      ? data
+      : [{ label: 'No Data', value: 0, displayValue: '0', color: '#475569', glow: 'rgba(71,85,105,0.3)' }];
+  const maxVal = Math.max(1, ...safeData.map((d) => d.value));
+
+  return (
+    <svg viewBox="0 0 360 205" className="h-full w-full overflow-visible" role="img" aria-label={ariaLabel}>
+      <defs>
+        {safeData.map((d, idx) => (
+          <linearGradient key={idx} id={`${gradPrefix}-${idx}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={d.color} stopOpacity="0.48" />
+            <stop offset="100%" stopColor={d.color} stopOpacity="0.08" />
+          </linearGradient>
+        ))}
+      </defs>
+      {[36, 76, 116, 156].map((y) => (
+        <line key={y} x1="16" y1={y} x2="344" y2={y} stroke="rgba(255,255,255,0.07)" strokeDasharray="3 5" />
+      ))}
+      {safeData.map((d, idx) => {
+        const step = 320 / safeData.length;
+        const barW = Math.min(44, step * 0.62);
+        const x = 20 + idx * step + (step - barW) / 2;
+        const h = Math.max(12, (d.value / maxVal) * 124);
+        const y = 166 - h;
+        const isHovered = hoveredIdx === idx;
+        const lift = isHovered ? -10 : 0;
+
+        return (
+          <g
+            key={`${d.label}-${idx}`}
+            onMouseEnter={() => onHover(idx)}
+            onMouseLeave={() => onHover(null)}
+            style={{
+              transform: `translateY(${lift}px)`,
+              transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
+              cursor: 'pointer',
+            }}
+          >
+            <polygon
+              points={`${x + barW},${y} ${x + barW + 10},${y - 7} ${x + barW + 10},${166 - 7} ${x + barW},166`}
+              fill={d.color}
+              fillOpacity={isHovered ? 0.28 : 0.14}
+              stroke={d.color}
+              strokeOpacity={0.45}
+              strokeWidth={0.8}
+            />
+            <polygon
+              points={`${x},${y} ${x + 10},${y - 7} ${x + barW + 10},${y - 7} ${x + barW},${y}`}
+              fill={d.color}
+              fillOpacity={isHovered ? 0.55 : 0.32}
+              stroke={d.color}
+              strokeOpacity={0.75}
+              strokeWidth={0.9}
+            />
+            <rect
+              x={x}
+              y={y}
+              width={barW}
+              height={h}
+              rx={4}
+              fill={`url(#${gradPrefix}-${idx})`}
+              stroke={isHovered ? '#ffffff' : d.color}
+              strokeOpacity={isHovered ? 0.85 : 0.65}
+              strokeWidth={1.25}
+              style={isHovered ? { filter: `drop-shadow(0 10px 18px ${d.glow})` } : undefined}
+            />
+            <line x1={x + 4} y1={y + 4} x2={x + 4} y2={Math.max(y + 6, 162)} stroke="rgba(255,255,255,0.28)" strokeWidth={1.2} strokeLinecap="round" />
+            <text x={x + barW / 2} y={y - 13} textAnchor="middle" className="fill-white text-[11px] font-semibold">
+              {d.displayValue}
+            </text>
+            <text x={x + barW / 2} y={186} textAnchor="middle" className="fill-slate-300 text-[11px]">
+              {d.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export function OwnerAnalyticsCharts({
   dashboard,
   analytics,
@@ -43,10 +133,13 @@ export function OwnerAnalyticsCharts({
   occupiedBeds,
   unavailableBeds,
 }: OwnerAnalyticsChartsProps) {
-  const [barMode, setBarMode] = useState<'inventory' | 'bookings' | 'properties'>('inventory');
+  const [barMode, setBarMode] = useState<'inventory' | 'properties'>('inventory');
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
 
-  const [ringMode, setRingMode] = useState<'occupancy' | 'outcomes' | 'stayType'>('occupancy');
+  const [revMode, setRevMode] = useState<'byProperty' | 'monthly' | 'daily'>('byProperty');
+  const [hoveredRevBar, setHoveredRevBar] = useState<number | null>(null);
+
+  const [ringMode, setRingMode] = useState<'stayType' | 'verification' | 'propertyType'>('stayType');
   const [hoveredRing, setHoveredRing] = useState<number | null>(null);
 
   const [waveMode, setWaveMode] = useState<'financials' | 'pricing'>('financials');
@@ -55,7 +148,7 @@ export function OwnerAnalyticsCharts({
   const [radarMode, setRadarMode] = useState<'health' | 'distribution'>('health');
   const [hoveredVertex, setHoveredVertex] = useState<number | null>(null);
 
-  // --- 1. 3D Glass Bar Chart Data ---
+  // --- 1. 3D Glass Bar Chart Data (Capacity & Properties) ---
   const barData: ChartDatum[] =
     barMode === 'inventory'
       ? [
@@ -64,14 +157,6 @@ export function OwnerAnalyticsCharts({
           { label: 'Vacant', value: vacantBeds, displayValue: String(vacantBeds), color: '#34d399', glow: 'rgba(52,211,153,0.5)' },
           { label: 'Booked', value: occupiedBeds, displayValue: String(occupiedBeds), color: '#fbbf24', glow: 'rgba(251,191,36,0.5)' },
           { label: 'Blocked', value: unavailableBeds, displayValue: String(unavailableBeds), color: '#f472b6', glow: 'rgba(244,114,182,0.5)' },
-        ]
-      : barMode === 'bookings'
-      ? [
-          { label: 'Total', value: analytics?.totalBookings ?? bookings.length, displayValue: String(analytics?.totalBookings ?? bookings.length), color: '#22d3ee', glow: 'rgba(34,211,238,0.5)' },
-          { label: 'Pending', value: dashboard.pendingBookings, displayValue: String(dashboard.pendingBookings), color: '#fbbf24', glow: 'rgba(251,191,36,0.5)' },
-          { label: 'Confirmed', value: dashboard.confirmedBookings, displayValue: String(dashboard.confirmedBookings), color: '#818cf8', glow: 'rgba(129,140,248,0.5)' },
-          { label: 'Completed', value: analytics?.completedBookings ?? 0, displayValue: String(analytics?.completedBookings ?? 0), color: '#34d399', glow: 'rgba(52,211,153,0.5)' },
-          { label: 'Cancelled', value: analytics?.cancelledBookings ?? 0, displayValue: String(analytics?.cancelledBookings ?? 0), color: '#fb7185', glow: 'rgba(251,113,133,0.5)' },
         ]
       : properties.slice(0, 5).map((p, idx) => {
           const bedCount = (p.rooms ?? []).reduce((acc, r) => acc + (r.beds?.length ?? 0), 0);
@@ -85,33 +170,89 @@ export function OwnerAnalyticsCharts({
           };
         });
 
-  const safeBarData =
-    barData.length > 0
-      ? barData
-      : [{ label: 'No Data', value: 0, displayValue: '0', color: '#475569', glow: 'rgba(71,85,105,0.3)' }];
-  const maxBar = Math.max(1, ...safeBarData.map((d) => d.value));
+  // --- 1B. 3D Glass Revenue Bar Graph (By Property / Monthly / Daily) ---
+  const validBookings = bookings.filter((b) => b.bookingStatus !== 'CANCELLED' && b.bookingStatus !== 'REJECTED');
+  const revColors = ['#34d399', '#22d3ee', '#818cf8', '#fbbf24', '#c084fc'];
 
-  // --- 2. 3D Translucent Ring Gauge Data ---
+  const revByPropertyData: ChartDatum[] = properties.slice(0, 5).map((p, idx) => {
+    const rev = validBookings
+      .filter((b) => b.propertyId === p.id)
+      .reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
+    return {
+      label: p.name.length > 10 ? `${p.name.slice(0, 10)}…` : p.name,
+      value: rev,
+      displayValue: formatINR(rev),
+      color: revColors[idx % revColors.length],
+      glow: 'rgba(52,211,153,0.5)',
+    };
+  });
+
+  const nowDate = new Date();
+  const revMonthlyData: ChartDatum[] = Array.from({ length: 5 }, (_, offset) => {
+    const d = new Date(nowDate.getFullYear(), nowDate.getMonth() - (4 - offset), 1);
+    const key = `${d.getFullYear()}-${d.getMonth()}`;
+    const label = d.toLocaleDateString('en-IN', { month: 'short' });
+    const rev = validBookings
+      .filter((b) => {
+        const bd = new Date(b.createdAt);
+        return `${bd.getFullYear()}-${bd.getMonth()}` === key;
+      })
+      .reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
+    return {
+      label,
+      value: rev,
+      displayValue: formatINR(rev),
+      color: revColors[offset % revColors.length],
+      glow: 'rgba(34,211,238,0.5)',
+    };
+  });
+
+  const revDailyData: ChartDatum[] = Array.from({ length: 5 }, (_, offset) => {
+    const d = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate() - (4 - offset));
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    const label = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+    const rev = validBookings
+      .filter((b) => {
+        const bd = new Date(b.createdAt);
+        return `${bd.getFullYear()}-${bd.getMonth()}-${bd.getDate()}` === key;
+      })
+      .reduce((sum, b) => sum + (b.totalAmount ?? 0), 0);
+    return {
+      label,
+      value: rev,
+      displayValue: formatINR(rev),
+      color: revColors[offset % revColors.length],
+      glow: 'rgba(129,140,248,0.5)',
+    };
+  });
+
+  const revBarData =
+    revMode === 'byProperty' ? revByPropertyData : revMode === 'monthly' ? revMonthlyData : revDailyData;
+
+  // --- 2. 3D Translucent Ring Gauge Data (Distinct from Sidebar Pie Chart) ---
   const shortStayCount = bookings.filter((b) => b.stayType === 'SHORT_STAY').length;
   const longStayCount = bookings.filter((b) => b.stayType === 'LONG_STAY').length;
+  const approvedProps = properties.filter((p) => p.verificationStatus === 'APPROVED').length;
+  const pendingProps = properties.filter((p) => p.verificationStatus === 'PENDING').length;
+  const rejectedProps = properties.filter((p) => p.verificationStatus === 'REJECTED').length;
 
   const ringData: ChartDatum[] =
-    ringMode === 'occupancy'
+    ringMode === 'stayType'
       ? [
-          { label: 'Vacant', value: vacantBeds, displayValue: `${vacantBeds} beds`, color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
-          { label: 'Occupied', value: occupiedBeds, displayValue: `${occupiedBeds} beds`, color: '#fbbf24', glow: 'rgba(251,191,36,0.55)' },
-          { label: 'Blocked', value: unavailableBeds, displayValue: `${unavailableBeds} beds`, color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
-        ]
-      : ringMode === 'outcomes'
-      ? [
-          { label: 'Confirmed', value: dashboard.confirmedBookings, displayValue: String(dashboard.confirmedBookings), color: '#22d3ee', glow: 'rgba(34,211,238,0.55)' },
-          { label: 'Completed', value: analytics?.completedBookings ?? 0, displayValue: String(analytics?.completedBookings ?? 0), color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
-          { label: 'Pending', value: dashboard.pendingBookings, displayValue: String(dashboard.pendingBookings), color: '#fbbf24', glow: 'rgba(251,191,36,0.55)' },
-          { label: 'Cancelled', value: analytics?.cancelledBookings ?? 0, displayValue: String(analytics?.cancelledBookings ?? 0), color: '#fb7185', glow: 'rgba(251,113,133,0.55)' },
-        ]
-      : [
           { label: 'Short Stay', value: shortStayCount, displayValue: String(shortStayCount), color: '#22d3ee', glow: 'rgba(34,211,238,0.55)' },
           { label: 'Long Stay', value: longStayCount, displayValue: String(longStayCount), color: '#a855f7', glow: 'rgba(168,85,247,0.55)' },
+        ]
+      : ringMode === 'verification'
+      ? [
+          { label: 'Approved', value: approvedProps, displayValue: String(approvedProps), color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
+          { label: 'Pending', value: pendingProps, displayValue: String(pendingProps), color: '#fbbf24', glow: 'rgba(251,191,36,0.55)' },
+          { label: 'Rejected', value: rejectedProps, displayValue: String(rejectedProps), color: '#fb7185', glow: 'rgba(251,113,133,0.55)' },
+        ]
+      : [
+          { label: 'Hostel', value: properties.filter((p) => p.propertyType === 'HOSTEL').length, displayValue: String(properties.filter((p) => p.propertyType === 'HOSTEL').length), color: '#22d3ee', glow: 'rgba(34,211,238,0.55)' },
+          { label: 'PG', value: properties.filter((p) => p.propertyType === 'PG').length, displayValue: String(properties.filter((p) => p.propertyType === 'PG').length), color: '#818cf8', glow: 'rgba(129,140,248,0.55)' },
+          { label: 'Dormitory', value: properties.filter((p) => p.propertyType === 'DORMITORY').length, displayValue: String(properties.filter((p) => p.propertyType === 'DORMITORY').length), color: '#34d399', glow: 'rgba(52,211,153,0.55)' },
+          { label: 'Co-Living', value: properties.filter((p) => p.propertyType === 'CO_LIVING').length, displayValue: String(properties.filter((p) => p.propertyType === 'CO_LIVING').length), color: '#c084fc', glow: 'rgba(192,132,252,0.55)' },
         ];
 
   const ringTotal = ringData.reduce((sum, d) => sum + d.value, 0);
@@ -236,97 +377,57 @@ export function OwnerAnalyticsCharts({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-base font-semibold text-white">3D Glass Bar Matrix</h3>
+            <h3 className="text-base font-semibold text-white">3D Glass Capacity Matrix</h3>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-0.5">
             <button type="button" onClick={() => setBarMode('inventory')} className={tabClass(barMode === 'inventory')}>
               Inventory
             </button>
-            <button type="button" onClick={() => setBarMode('bookings')} className={tabClass(barMode === 'bookings')}>
-              Bookings
-            </button>
             <button type="button" onClick={() => setBarMode('properties')} className={tabClass(barMode === 'properties')}>
-              Properties
+              By Property
             </button>
           </div>
         </div>
 
         <div className="mt-4 h-60 w-full">
-          <svg viewBox="0 0 360 205" className="h-full w-full overflow-visible" role="img" aria-label="3D interactive bar chart">
-            <defs>
-              {safeBarData.map((d, idx) => (
-                <linearGradient key={idx} id={`glassBar-${idx}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={d.color} stopOpacity="0.48" />
-                  <stop offset="100%" stopColor={d.color} stopOpacity="0.08" />
-                </linearGradient>
-              ))}
-            </defs>
-            {[36, 76, 116, 156].map((y) => (
-              <line key={y} x1="16" y1={y} x2="344" y2={y} stroke="rgba(255,255,255,0.07)" strokeDasharray="3 5" />
-            ))}
-            {safeBarData.map((d, idx) => {
-              const step = 320 / safeBarData.length;
-              const barW = Math.min(44, step * 0.62);
-              const x = 20 + idx * step + (step - barW) / 2;
-              const h = Math.max(12, (d.value / maxBar) * 124);
-              const y = 166 - h;
-              const isHovered = hoveredBar === idx;
-              const lift = isHovered ? -10 : 0;
+          <GlassBar3DSvg
+            data={barData}
+            gradPrefix="glassBar"
+            hoveredIdx={hoveredBar}
+            onHover={setHoveredBar}
+            ariaLabel="3D interactive capacity bar chart"
+          />
+        </div>
+      </div>
 
-              return (
-                <g
-                  key={d.label}
-                  onMouseEnter={() => setHoveredBar(idx)}
-                  onMouseLeave={() => setHoveredBar(null)}
-                  style={{
-                    transform: `translateY(${lift}px)`,
-                    transition: 'transform 220ms cubic-bezier(0.22, 1, 0.36, 1)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {/* 3D Side Glass Face */}
-                  <polygon
-                    points={`${x + barW},${y} ${x + barW + 10},${y - 7} ${x + barW + 10},${166 - 7} ${x + barW},166`}
-                    fill={d.color}
-                    fillOpacity={isHovered ? 0.28 : 0.14}
-                    stroke={d.color}
-                    strokeOpacity={0.45}
-                    strokeWidth={0.8}
-                  />
-                  {/* 3D Top Glass Cap */}
-                  <polygon
-                    points={`${x},${y} ${x + 10},${y - 7} ${x + barW + 10},${y - 7} ${x + barW},${y}`}
-                    fill={d.color}
-                    fillOpacity={isHovered ? 0.55 : 0.32}
-                    stroke={d.color}
-                    strokeOpacity={0.75}
-                    strokeWidth={0.9}
-                  />
-                  {/* Front Frosted Glass Prism */}
-                  <rect
-                    x={x}
-                    y={y}
-                    width={barW}
-                    height={h}
-                    rx={4}
-                    fill={`url(#glassBar-${idx})`}
-                    stroke={isHovered ? '#ffffff' : d.color}
-                    strokeOpacity={isHovered ? 0.85 : 0.65}
-                    strokeWidth={1.25}
-                    style={isHovered ? { filter: `drop-shadow(0 10px 18px ${d.glow})` } : undefined}
-                  />
-                  {/* Specular glass reflection line */}
-                  <line x1={x + 4} y1={y + 4} x2={x + 4} y2={Math.max(y + 6, 162)} stroke="rgba(255,255,255,0.28)" strokeWidth={1.2} strokeLinecap="round" />
-                  <text x={x + barW / 2} y={y - 13} textAnchor="middle" className="fill-white text-[11px] font-semibold">
-                    {d.displayValue}
-                  </text>
-                  <text x={x + barW / 2} y={186} textAnchor="middle" className="fill-slate-300 text-[11px]">
-                    {d.label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+      {/* 1B. Dedicated 3D Glass Revenue Comparison Bar Graph */}
+      <div className={GLASS_CARD}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <IndianRupee className="h-4 w-4 text-emerald-400" />
+            <h3 className="text-base font-semibold text-white">3D Revenue Comparison</h3>
+          </div>
+          <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-0.5">
+            <button type="button" onClick={() => setRevMode('byProperty')} className={tabClass(revMode === 'byProperty')}>
+              By Property
+            </button>
+            <button type="button" onClick={() => setRevMode('monthly')} className={tabClass(revMode === 'monthly')}>
+              Monthly
+            </button>
+            <button type="button" onClick={() => setRevMode('daily')} className={tabClass(revMode === 'daily')}>
+              5-Day Trend
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-4 h-60 w-full">
+          <GlassBar3DSvg
+            data={revBarData}
+            gradPrefix="revBar"
+            hoveredIdx={hoveredRevBar}
+            onHover={setHoveredRevBar}
+            ariaLabel="3D interactive revenue bar chart"
+          />
         </div>
       </div>
 
@@ -335,17 +436,17 @@ export function OwnerAnalyticsCharts({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <PieChart className="h-4 w-4 text-indigo-400" />
-            <h3 className="text-base font-semibold text-white">3D Glass Utilization Ring</h3>
+            <h3 className="text-base font-semibold text-white">3D Portfolio &amp; Stay Ring</h3>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-0.5">
-            <button type="button" onClick={() => setRingMode('occupancy')} className={tabClass(ringMode === 'occupancy')}>
-              Beds
-            </button>
-            <button type="button" onClick={() => setRingMode('outcomes')} className={tabClass(ringMode === 'outcomes')}>
-              Status
-            </button>
             <button type="button" onClick={() => setRingMode('stayType')} className={tabClass(ringMode === 'stayType')}>
               Stay Type
+            </button>
+            <button type="button" onClick={() => setRingMode('verification')} className={tabClass(ringMode === 'verification')}>
+              Verification
+            </button>
+            <button type="button" onClick={() => setRingMode('propertyType')} className={tabClass(ringMode === 'propertyType')}>
+              Property Type
             </button>
           </div>
         </div>
@@ -511,7 +612,7 @@ export function OwnerAnalyticsCharts({
       </div>
 
       {/* 4. Enlarged Translucent Radar Matrix */}
-      <div className={GLASS_CARD}>
+      <div className={`${GLASS_CARD} lg:col-span-2`}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Radar className="h-4 w-4 text-purple-400" />
