@@ -15,29 +15,13 @@ export function OwnerDashboardPage() {
     queryFn: () => ownerApi.getBookings({ page: 0, size: 100 }),
   });
 
-  if (dashQuery.isLoading) return <div className="glass-panel h-72 animate-pulse rounded-2xl" />;
-  if (dashQuery.isError || !dashQuery.data) {
-    return <ErrorState message={(dashQuery.error as Error)?.message ?? 'Failed to load owner dashboard'} onRetry={() => void dashQuery.refetch()} />;
-  }
-
-  const d = dashQuery.data;
-  const a = analyticsQuery.data;
   const properties = propertiesQuery.data ?? [];
   const bookings = bookingsQuery.data?.content ?? [];
   const nowMs = Date.now();
-
-  const bookedBedIds = new Set(
-    bookings
-      .filter((b) => {
-        const activeOut = new Date(b.checkOut).getTime() > nowMs;
-        return activeOut && (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING');
-      })
-      .map((b) => b.bedId),
-  );
-
   const allRooms = properties.flatMap((p) => p.rooms ?? []);
   const allBeds = allRooms.flatMap((r) => r.beds ?? []);
   const allBedIds = allBeds.map((b) => b.id);
+
   const bedBlocksQuery = useQuery({
     queryKey: ['owner-all-bed-blocks', allBedIds.join(',')],
     queryFn: async () => {
@@ -47,11 +31,12 @@ export function OwnerDashboardPage() {
           blocks: await ownerApi.getBlocksForBed(id).catch(() => []),
         })),
       );
+      const currentMs = Date.now();
       const blocked = new Set<string>();
       for (const item of results) {
         if (
           item.blocks.some(
-            (blk) => new Date(blk.startTime).getTime() <= nowMs + 60_000 && new Date(blk.endTime).getTime() > nowMs,
+            (blk) => new Date(blk.startTime).getTime() <= currentMs + 60_000 && new Date(blk.endTime).getTime() > currentMs,
           )
         ) {
           blocked.add(item.id);
@@ -62,6 +47,23 @@ export function OwnerDashboardPage() {
     enabled: allBedIds.length > 0,
     retry: false,
   });
+
+  if (dashQuery.isLoading) return <div className="glass-panel h-72 animate-pulse rounded-2xl" />;
+  if (dashQuery.isError || !dashQuery.data) {
+    return <ErrorState message={(dashQuery.error as Error)?.message ?? 'Failed to load owner dashboard'} onRetry={() => void dashQuery.refetch()} />;
+  }
+
+  const d = dashQuery.data;
+  const a = analyticsQuery.data;
+
+  const bookedBedIds = new Set(
+    bookings
+      .filter((b) => {
+        const activeOut = new Date(b.checkOut).getTime() > nowMs;
+        return activeOut && (b.bookingStatus === 'CONFIRMED' || b.bookingStatus === 'PENDING');
+      })
+      .map((b) => b.bedId),
+  );
   const blockedBedIds = new Set(bedBlocksQuery.data ?? []);
 
   const totalRooms = allRooms.length;
