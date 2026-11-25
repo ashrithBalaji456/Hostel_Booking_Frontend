@@ -679,8 +679,8 @@ export function PieChart3DCard({
 
   const total = slices.reduce((s, d) => s + d.value, 0);
   const cx = 100;
-  const cy = 92;
-  const r = 74;
+  const cy = 96;
+  const r = 86;
 
   const nonZero = slices.map((s, idx) => ({ ...s, idx })).filter((s) => s.value > 0);
   let startAngle = -Math.PI / 2;
@@ -710,8 +710,8 @@ export function PieChart3DCard({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col items-center">
-        <svg viewBox="0 0 200 192" className="h-52 w-52 overflow-visible" role="img" aria-label="3D interactive pie chart">
+      <div className="mt-3 flex flex-col items-center">
+        <svg viewBox="0 0 200 204" className="h-64 w-64 overflow-visible" role="img" aria-label="3D interactive pie chart">
           {/* Translucent 3D shadow rim */}
           <ellipse cx={cx} cy={cy + 12} rx={r} ry={r * 0.96} fill="rgba(2,6,23,0.45)" stroke="rgba(255,255,255,0.06)" />
           {nonZero.length === 0 ? (
