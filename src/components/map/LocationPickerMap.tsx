@@ -120,7 +120,7 @@ export default function LocationPickerMap({
 
     map.invalidateSize({ pan: false });
     marker.setLatLng([latitude, longitude]);
-    map.panTo([latitude, longitude], { animate: true });
+    map.setView([latitude, longitude], map.getZoom(), { animate: false });
 
     if (accuracyCircleRef.current) {
       accuracyCircleRef.current.remove();
