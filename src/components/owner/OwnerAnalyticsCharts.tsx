@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BarChart3, CalendarRange, IndianRupee, PieChart, Activity, Radar } from 'lucide-react';
+import { DateTimePicker } from '../ui/DateTimePicker';
 import type {
   BookingResponse,
   OwnerAnalyticsResponse,
@@ -133,7 +134,15 @@ export function OwnerAnalyticsCharts({
   occupiedBeds,
   unavailableBeds,
 }: OwnerAnalyticsChartsProps) {
-  const [timeRange, setTimeRange] = useState<'7D' | '30D' | '90D' | '1Y' | 'ALL'>('30D');
+  const [timeRange, setTimeRange] = useState<'7D' | '30D' | '90D' | '1Y' | 'ALL' | 'CUSTOM'>('30D');
+  const [customFrom, setCustomFrom] = useState(() => {
+    const d = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T00:00`;
+  });
+  const [customTo, setCustomTo] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T23:59`;
+  });
 
   const [barMode, setBarMode] = useState<'inventory' | 'properties'>('inventory');
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
@@ -180,11 +189,19 @@ export function OwnerAnalyticsCharts({
     '90D': 90,
     '1Y': 365,
   };
+  const customStartMs = customFrom ? new Date(customFrom).getTime() : 0;
+  const customEndMs = customTo ? new Date(customTo).getTime() : nowDate.getTime();
   const cutoffMs =
     timeRange === 'ALL'
       ? 0
+      : timeRange === 'CUSTOM'
+      ? customStartMs
       : nowDate.getTime() - rangeDaysMap[timeRange] * 24 * 60 * 60 * 1000;
-  const rangedBookings = bookings.filter((b) => new Date(b.createdAt).getTime() >= cutoffMs);
+  const upperCutoffMs = timeRange === 'CUSTOM' ? Math.max(customStartMs, customEndMs) : nowDate.getTime();
+  const rangedBookings = bookings.filter((b) => {
+    const t = new Date(b.createdAt).getTime();
+    return t >= cutoffMs && t <= upperCutoffMs;
+  });
   const validBookings = rangedBookings.filter(
     (b) => b.bookingStatus !== 'CANCELLED' && b.bookingStatus !== 'REJECTED',
   );
@@ -205,14 +222,22 @@ export function OwnerAnalyticsCharts({
 
   // Dynamic time buckets matching the selected timeframe (5 buckets)
   const bucketCount = 5;
-  const totalSpanDays = timeRange === '7D' ? 5 : timeRange === '30D' ? 30 : timeRange === '90D' ? 90 : 150;
-  const bucketMs = (totalSpanDays / bucketCount) * 24 * 60 * 60 * 1000;
+  const totalSpanMs =
+    timeRange === 'CUSTOM'
+      ? Math.max(24 * 60 * 60 * 1000, upperCutoffMs - cutoffMs)
+      : (timeRange === '7D' ? 5 : timeRange === '30D' ? 30 : timeRange === '90D' ? 90 : 150) *
+        24 *
+        60 *
+        60 *
+        1000;
+  const bucketMs = totalSpanMs / bucketCount;
+  const anchorEndMs = timeRange === 'CUSTOM' ? upperCutoffMs : nowDate.getTime();
   const overTimeBuckets = Array.from({ length: bucketCount }, (_, idx) => {
-    const endMs = nowDate.getTime() - (bucketCount - 1 - idx) * bucketMs;
+    const endMs = anchorEndMs - (bucketCount - 1 - idx) * bucketMs;
     const startMs = endMs - bucketMs;
     const bucketDate = new Date(endMs);
     const label =
-      timeRange === '7D' || timeRange === '30D'
+      timeRange === '7D' || timeRange === '30D' || (timeRange === 'CUSTOM' && totalSpanMs <= 45 * 24 * 60 * 60 * 1000)
         ? bucketDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
         : bucketDate.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
     const inBucket = validBookings.filter((b) => {
@@ -389,34 +414,64 @@ export function OwnerAnalyticsCharts({
   return (
     <div className="space-y-5">
       {/* Global Timeframe Selector */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3.5 backdrop-blur-2xl">
-        <div className="flex items-center gap-2.5">
-          <CalendarRange className="h-4 w-4 text-cyan-400" />
-          <span className="text-sm font-semibold text-white">Analytics Over Time</span>
-          <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-slate-300">
-            {rangedBookings.length} bookings · {formatINR(grossRev)}
-          </span>
+      <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-3.5 backdrop-blur-2xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <CalendarRange className="h-4 w-4 text-cyan-400" />
+            <span className="text-sm font-semibold text-white">Analytics Over Time</span>
+            <span className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-0.5 text-xs text-slate-300">
+              {rangedBookings.length} bookings · {formatINR(grossRev)}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-1">
+            {(
+              [
+                { id: '7D', label: '7 Days' },
+                { id: '30D', label: '30 Days' },
+                { id: '90D', label: '90 Days' },
+                { id: '1Y', label: '1 Year' },
+                { id: 'ALL', label: 'All Time' },
+                { id: 'CUSTOM', label: 'Custom' },
+              ] as const
+            ).map((tf) => (
+              <button
+                key={tf.id}
+                type="button"
+                onClick={() => setTimeRange(tf.id)}
+                className={tabClass(timeRange === tf.id)}
+              >
+                {tf.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex flex-wrap items-center gap-1 rounded-xl border border-white/10 bg-slate-950/60 p-1">
-          {(
-            [
-              { id: '7D', label: '7 Days' },
-              { id: '30D', label: '30 Days' },
-              { id: '90D', label: '90 Days' },
-              { id: '1Y', label: '1 Year' },
-              { id: 'ALL', label: 'All Time' },
-            ] as const
-          ).map((tf) => (
-            <button
-              key={tf.id}
-              type="button"
-              onClick={() => setTimeRange(tf.id)}
-              className={tabClass(timeRange === tf.id)}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
+
+        {timeRange === 'CUSTOM' && (
+          <div className="grid gap-3 border-t border-white/10 pt-3 sm:grid-cols-2">
+            <div>
+              <label htmlFor="an-from" className="mb-1 block text-xs font-medium text-slate-300">
+                From Date &amp; Time
+              </label>
+              <DateTimePicker
+                id="an-from"
+                ariaLabel="Analytics From Date"
+                value={customFrom}
+                onChange={(val) => setCustomFrom(val)}
+              />
+            </div>
+            <div>
+              <label htmlFor="an-to" className="mb-1 block text-xs font-medium text-slate-300">
+                To Date &amp; Time
+              </label>
+              <DateTimePicker
+                id="an-to"
+                ariaLabel="Analytics To Date"
+                value={customTo}
+                onChange={(val) => setCustomTo(val)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-2" style={{ perspective: '1200px' }}>
