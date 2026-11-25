@@ -38,12 +38,27 @@ export default function LocationPickerMap({
       const map = L.map(containerRef.current).setView([latitude, longitude], 15);
       mapRef.current = map;
 
-      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19,
         updateWhenIdle: false,
         keepBuffer: 4,
       }).addTo(map);
+
+      let loadedAnyTile = false;
+      let switchedToFallback = false;
+      const switchToFallbackTiles = () => {
+        if (switchedToFallback) return;
+        switchedToFallback = true;
+        tiles.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}');
+      };
+      tiles.on('tileload', () => {
+        loadedAnyTile = true;
+      });
+      tiles.on('tileerror', switchToFallbackTiles);
+      const fallbackTimer = window.setTimeout(() => {
+        if (!loadedAnyTile) switchToFallbackTiles();
+      }, 2500);
 
       const pinIcon = L.divIcon({
         className: 'spatial-pin-icon',
@@ -90,6 +105,7 @@ export default function LocationPickerMap({
 
       return () => {
         window.clearTimeout(timer);
+        window.clearTimeout(fallbackTimer);
         observer?.disconnect();
         if (mapRef.current) {
           mapRef.current.remove();

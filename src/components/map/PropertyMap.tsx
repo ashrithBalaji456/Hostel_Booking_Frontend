@@ -56,12 +56,27 @@ export default function PropertyMap({
     const map = L.map(containerRef.current).setView(defaultCenter, 13);
     mapRef.current = map;
 
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
       maxZoom: 19,
       updateWhenIdle: false,
       keepBuffer: 4,
     }).addTo(map);
+
+    let loadedAnyTile = false;
+    let switchedToFallback = false;
+    const switchToFallbackTiles = () => {
+      if (switchedToFallback) return;
+      switchedToFallback = true;
+      tiles.setUrl('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}');
+    };
+    tiles.on('tileload', () => {
+      loadedAnyTile = true;
+    });
+    tiles.on('tileerror', switchToFallbackTiles);
+    const fallbackTimer = window.setTimeout(() => {
+      if (!loadedAnyTile) switchToFallbackTiles();
+    }, 2500);
 
     const bounds = L.latLngBounds([]);
 
@@ -119,6 +134,7 @@ export default function PropertyMap({
 
     return () => {
       window.clearTimeout(timer);
+      window.clearTimeout(fallbackTimer);
       observer?.disconnect();
       map.remove();
       mapRef.current = null;
