@@ -38,9 +38,8 @@ export default function LocationPickerMap({
       const map = L.map(containerRef.current).setView([latitude, longitude], 15);
       mapRef.current = map;
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: 'abcd',
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19,
         updateWhenIdle: false,
         keepBuffer: 4,
