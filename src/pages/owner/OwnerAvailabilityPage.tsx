@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ownerApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
+import { DateTimePicker } from '../../components/ui/DateTimePicker';
 import { formatIST, toIsoUtc } from '../../utils/format';
 
 export function OwnerAvailabilityPage() {
@@ -225,25 +226,23 @@ export function OwnerAvailabilityPage() {
 
           <div>
             <label htmlFor="blk-start" className="mb-1 block text-xs font-medium text-slate-300">Start Date &amp; Time</label>
-            <input
+            <DateTimePicker
               id="blk-start"
+              ariaLabel="Start Date and Time"
               required
-              type="datetime-local"
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              onChange={(val) => setStartTime(val)}
             />
           </div>
 
           <div>
             <label htmlFor="blk-end" className="mb-1 block text-xs font-medium text-slate-300">End Date &amp; Time</label>
-            <input
+            <DateTimePicker
               id="blk-end"
+              ariaLabel="End Date and Time"
               required
-              type="datetime-local"
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              onChange={(val) => setEndTime(val)}
             />
           </div>
 

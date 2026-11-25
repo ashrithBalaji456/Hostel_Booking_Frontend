@@ -8,6 +8,7 @@ import { useToast } from '../../context/ToastContext';
 import { InteractiveBedSelector } from '../../components/property/InteractiveBedSelector';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
+import { DateTimePicker } from '../../components/ui/DateTimePicker';
 import { defaultCheckInLocal, defaultCheckOutLocal, formatINR, toIsoUtc } from '../../utils/format';
 import type { AvailableBedInfo, StayType } from '../../types/api';
 
@@ -218,11 +219,11 @@ export function PropertyDetailPage() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <label htmlFor="pd-in" className="block text-xs text-slate-400">Check-in</label>
-                <input id="pd-in" type="datetime-local" value={checkIn} onChange={(e) => { setCheckIn(e.target.value); setSelectedBed(null); }} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+                <DateTimePicker id="pd-in" ariaLabel="Check-in" value={checkIn} onChange={(val) => { setCheckIn(val); setSelectedBed(null); }} className="mt-1" />
               </div>
               <div>
                 <label htmlFor="pd-out" className="block text-xs text-slate-400">Check-out</label>
-                <input id="pd-out" type="datetime-local" value={checkOut} onChange={(e) => { setCheckOut(e.target.value); setSelectedBed(null); }} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+                <DateTimePicker id="pd-out" ariaLabel="Check-out" value={checkOut} onChange={(val) => { setCheckOut(val); setSelectedBed(null); }} className="mt-1" />
               </div>
               <div>
                 <label htmlFor="pd-stay" className="block text-xs text-slate-400">Stay Type</label>

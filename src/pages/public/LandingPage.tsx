@@ -5,6 +5,7 @@ import { Briefcase, CalendarClock, Clock, Compass, Crosshair, List, ShieldCheck,
 import { propertyApi } from '../../api/endpoints';
 import { PropertyCard } from '../../components/property/PropertyCard';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
+import { DateTimePicker } from '../../components/ui/DateTimePicker';
 import { buildHeroBedSlots } from '../../utils/heroBeds';
 import { resolveCurrentLocation } from '../../utils/geolocation';
 import { defaultCheckInLocal, defaultCheckOutLocal, formatINR, formatIST, toIsoUtc } from '../../utils/format';
@@ -161,23 +162,23 @@ export function LandingPage() {
 
                 <div className="lg:col-span-3">
                   <label htmlFor="hero-checkin" className="block text-xs font-medium text-slate-300">Check-in</label>
-                  <input
+                  <DateTimePicker
                     id="hero-checkin"
-                    type="datetime-local"
+                    ariaLabel="Check-in"
                     value={checkIn}
-                    onChange={(e) => setCheckIn(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    onChange={(val) => setCheckIn(val)}
+                    className="mt-1"
                   />
                 </div>
 
                 <div className="lg:col-span-3">
                   <label htmlFor="hero-checkout" className="block text-xs font-medium text-slate-300">Check-out</label>
-                  <input
+                  <DateTimePicker
                     id="hero-checkout"
-                    type="datetime-local"
+                    ariaLabel="Check-out"
                     value={checkOut}
-                    onChange={(e) => setCheckOut(e.target.value)}
-                    className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900/90 px-3 py-2 text-sm text-white focus:border-cyan-400 focus:outline-none"
+                    onChange={(val) => setCheckOut(val)}
+                    className="mt-1"
                   />
                 </div>
 

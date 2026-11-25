@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
+import { DateTimePicker } from '../../components/ui/DateTimePicker';
 import { formatINR, formatIST, toIsoUtc } from '../../utils/format';
 
 export function OwnerBookingsPage() {
@@ -51,8 +52,8 @@ export function OwnerBookingsPage() {
           <input required value={walkInBedId} onChange={(e) => setWalkInBedId(e.target.value)} placeholder="Bed UUID" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           <input required value={walkInName} onChange={(e) => setWalkInName(e.target.value)} placeholder="Guest Name" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           <input required value={walkInPhone} onChange={(e) => setWalkInPhone(e.target.value)} placeholder="Guest Phone" className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-          <input required type="datetime-local" value={walkInCheckIn} onChange={(e) => setWalkInCheckIn(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
-          <input required type="datetime-local" value={walkInCheckOut} onChange={(e) => setWalkInCheckOut(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+          <DateTimePicker required ariaLabel="Walk-In Check-in" value={walkInCheckIn} onChange={(val) => setWalkInCheckIn(val)} />
+          <DateTimePicker required ariaLabel="Walk-In Check-out" value={walkInCheckOut} onChange={(val) => setWalkInCheckOut(val)} />
           <button type="submit" disabled={walkInMutation.isPending} className="rounded-xl bg-cyan-600 px-4 py-2 text-sm font-semibold text-white">
             Create Walk-In
           </button>
