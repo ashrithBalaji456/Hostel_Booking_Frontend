@@ -5,7 +5,15 @@ export type PropertyType = 'HOSTEL' | 'PG' | 'DORMITORY' | 'CO_LIVING';
 export type GenderPolicy = 'MALE_ONLY' | 'FEMALE_ONLY' | 'CO_ED';
 export type VerificationStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type ListingStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
-export type RoomType = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'DORMITORY';
+export type RoomType =
+  | 'SINGLE'
+  | 'DOUBLE'
+  | 'TRIPLE'
+  | 'FOUR_SHARING'
+  | 'FIVE_SHARING'
+  | 'SIX_SHARING'
+  | 'DORMITORY'
+  | 'CUSTOM';
 export type RoomStatus = 'AVAILABLE' | 'MAINTENANCE' | 'INACTIVE';
 export type BedStatus = 'AVAILABLE' | 'MAINTENANCE' | 'INACTIVE';
 export type ImageType = 'COVER' | 'ROOM' | 'COMMON_AREA' | 'GALLERY';

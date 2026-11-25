@@ -146,6 +146,7 @@ export function OwnerPropertiesPage() {
   // Room fields
   const [roomNumber, setRoomNumber] = useState('101');
   const [roomType, setRoomType] = useState<RoomType>('DOUBLE');
+  const [customRoomLabel, setCustomRoomLabel] = useState('');
   const [capacity, setCapacity] = useState('2');
 
   const handleLoadPropertyForEdit = async () => {
@@ -346,6 +347,7 @@ export function OwnerPropertiesPage() {
         roomType,
         floor: 1,
         capacity: Number(capacity),
+        amenities: roomType === 'CUSTOM' && customRoomLabel.trim() ? customRoomLabel.trim() : undefined,
         autoCreateBeds: true,
       }),
     onSuccess: (res) => {
@@ -846,15 +848,45 @@ export function OwnerPropertiesPage() {
               id="room-type"
               ariaLabel="Room Type"
               value={roomType}
-              onChange={(val) => setRoomType(val)}
+              onChange={(val) => {
+                setRoomType(val);
+                const presetCap: Partial<Record<RoomType, string>> = {
+                  SINGLE: '1',
+                  DOUBLE: '2',
+                  TRIPLE: '3',
+                  FOUR_SHARING: '4',
+                  FIVE_SHARING: '5',
+                  SIX_SHARING: '6',
+                };
+                if (presetCap[val]) setCapacity(presetCap[val]!);
+              }}
               options={[
-                { value: 'SINGLE', label: 'Single' },
-                { value: 'DOUBLE', label: 'Double' },
-                { value: 'TRIPLE', label: 'Triple' },
+                { value: 'SINGLE', label: 'Single (1 Sharing)' },
+                { value: 'DOUBLE', label: 'Double (2 Sharing)' },
+                { value: 'TRIPLE', label: 'Triple (3 Sharing)' },
+                { value: 'FOUR_SHARING', label: '4 Sharing' },
+                { value: 'FIVE_SHARING', label: '5 Sharing' },
+                { value: 'SIX_SHARING', label: '6 Sharing' },
                 { value: 'DORMITORY', label: 'Dormitory' },
+                { value: 'CUSTOM', label: 'Custom Sharing…' },
               ]}
             />
           </div>
+          {roomType === 'CUSTOM' && (
+            <div>
+              <label htmlFor="room-custom-label" className="mb-1 block text-xs font-medium text-slate-300">
+                Custom Room Type
+              </label>
+              <input
+                id="room-custom-label"
+                required
+                value={customRoomLabel}
+                onChange={(e) => setCustomRoomLabel(e.target.value)}
+                placeholder="e.g. 4 Sharing AC / 8-Bed Pod"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              />
+            </div>
+          )}
           <div>
             <label htmlFor="room-capacity" className="mb-1 block text-xs font-medium text-slate-300">Bed Capacity</label>
             <input id="room-capacity" required type="number" min="1" value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="e.g. 2" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
