@@ -158,6 +158,7 @@ export function SelectDropdown<T extends string = string>({
         ref={menuRef}
         id={listboxId}
         role="listbox"
+        data-select-portal="true"
         aria-label={ariaLabel}
         style={{
           position: 'fixed',

@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { SelectDropdown } from './SelectDropdown';
 
 interface DateTimePickerProps {
   id?: string;
@@ -109,7 +110,12 @@ export function DateTimePicker({
   useEffect(() => {
     if (!open) return;
     const handlePointerDown = (e: MouseEvent | TouchEvent) => {
-      const target = e.target as Node;
+      const target = e.target as Element;
+      if (
+        target?.closest?.('[data-select-portal="true"]')
+      ) {
+        return;
+      }
       if (
         containerRef.current &&
         !containerRef.current.contains(target) &&
@@ -248,31 +254,31 @@ export function DateTimePicker({
         <div className="mt-3 flex items-center justify-between gap-2 border-t border-slate-800 pt-3">
           <div className="flex items-center gap-1.5 text-xs text-slate-300">
             <Clock className="h-3.5 w-3.5 text-cyan-400" />
-            <select
-              aria-label="Hour"
-              value={selectedHour}
-              onChange={(e) => updateTime(Number(e.target.value), selectedMinute)}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-cyan-400 focus:outline-none"
-            >
-              {Array.from({ length: 24 }, (_, h) => (
-                <option key={h} value={h}>
-                  {pad2(h)}
-                </option>
-              ))}
-            </select>
+            <SelectDropdown
+              ariaLabel="Hour"
+              value={pad2(selectedHour)}
+              onChange={(val) => updateTime(Number(val), selectedMinute)}
+              className="w-16"
+              buttonClassName="rounded-xl px-2.5 py-1 text-xs"
+              menuClassName="!min-w-[4.25rem]"
+              options={Array.from({ length: 24 }, (_, h) => ({
+                value: pad2(h),
+                label: pad2(h),
+              }))}
+            />
             <span>:</span>
-            <select
-              aria-label="Minute"
-              value={selectedMinute - (selectedMinute % 15)}
-              onChange={(e) => updateTime(selectedHour, Number(e.target.value))}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-white focus:border-cyan-400 focus:outline-none"
-            >
-              {[0, 15, 30, 45].map((m) => (
-                <option key={m} value={m}>
-                  {pad2(m)}
-                </option>
-              ))}
-            </select>
+            <SelectDropdown
+              ariaLabel="Minute"
+              value={pad2(selectedMinute - (selectedMinute % 15))}
+              onChange={(val) => updateTime(selectedHour, Number(val))}
+              className="w-16"
+              buttonClassName="rounded-xl px-2.5 py-1 text-xs"
+              menuClassName="!min-w-[4.25rem]"
+              options={[0, 15, 30, 45].map((m) => ({
+                value: pad2(m),
+                label: pad2(m),
+              }))}
+            />
           </div>
           <div className="flex items-center gap-1.5">
             <button
