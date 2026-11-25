@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BedDouble, Building2, CalendarCheck, DoorOpen, Plus, Wallet } from 'lucide-react';
 import { ownerApi } from '../../api/endpoints';
 import { ErrorState } from '../../components/ui/ErrorState';
+import { OwnerAnalyticsCharts } from '../../components/owner/OwnerAnalyticsCharts';
 import { formatINR, formatIST } from '../../utils/format';
 
 export function OwnerDashboardPage() {
@@ -209,6 +210,18 @@ export function OwnerDashboardPage() {
           </div>
         )}
       </div>
+
+      <OwnerAnalyticsCharts
+        dashboard={d}
+        analytics={a}
+        properties={properties}
+        bookings={bookings}
+        totalRooms={totalRooms}
+        totalBeds={totalBeds}
+        vacantBeds={vacantBeds}
+        occupiedBeds={occupiedBeds}
+        unavailableBeds={unavailableBeds}
+      />
 
       {a && (
         <div className="glass-panel rounded-2xl p-6 sm:p-7">
