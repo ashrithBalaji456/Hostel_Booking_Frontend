@@ -1,11 +1,55 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, Crosshair, MapPin, Pencil, Search, Trash2 } from 'lucide-react';
+import { CheckCircle2, Crosshair, ImagePlus, MapPin, Pencil, Search, Trash2, Upload } from 'lucide-react';
 import { ownerApi, propertyApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { resolveCurrentLocation, reverseGeocode } from '../../utils/geolocation';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
-import type { GenderPolicy, PropertyDetailResponse, PropertyType, RoomType } from '../../types/api';
+import type { GenderPolicy, ImageType, PropertyDetailResponse, PropertyType, RoomType } from '../../types/api';
+
+const AMENITY_OPTIONS = [
+  { code: 'WIFI', label: 'Wi-Fi' },
+  { code: 'AC', label: 'AC' },
+  { code: 'FOOD', label: 'Food / Meals' },
+  { code: 'WASHING_MACHINE', label: 'Washing Machine' },
+  { code: 'PARKING', label: 'Parking' },
+  { code: 'LOCKER', label: 'Locker' },
+  { code: 'HOT_WATER', label: 'Hot Water' },
+  { code: 'STUDY_ROOM', label: 'Study Room' },
+];
+
+interface DraftImageItem {
+  imageUrl: string;
+  imageType: ImageType;
+  displayOrder: number;
+}
+
+function compressImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Invalid image file'));
+      img.onload = () => {
+        const maxDim = 1200;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(String(reader.result));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
+      };
+      img.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 const LocationPickerMap = lazy(() => import('../../components/map/LocationPickerMap'));
 
@@ -143,7 +187,11 @@ export function OwnerPropertiesPage() {
   const [geocodeResults, setGeocodeResults] = useState<GeocodingSuggestion[]>([]);
   const [geocodingLoading, setGeocodingLoading] = useState(false);
 
-  // Room fields
+  // Room & media/facility fields
+  const [amenityCodes, setAmenityCodes] = useState<string[]>(['WIFI', 'LOCKER']);
+  const [images, setImages] = useState<DraftImageItem[]>([]);
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newImageType, setNewImageType] = useState<ImageType>('COVER');
   const [roomNumber, setRoomNumber] = useState('101');
   const [roomType, setRoomType] = useState<RoomType>('DOUBLE');
   const [customRoomLabel, setCustomRoomLabel] = useState('');
@@ -170,6 +218,14 @@ export function OwnerPropertiesPage() {
         setMonthlyRate(p.pricing.monthlyRate != null ? String(p.pricing.monthlyRate) : '');
         setSecurityDeposit(String(p.pricing.securityDeposit ?? 0));
       }
+      setAmenityCodes(p.amenities?.length ? p.amenities : ['WIFI', 'LOCKER']);
+      setImages(
+        (p.images ?? []).map((img, idx) => ({
+          imageUrl: img.imageUrl,
+          imageType: img.imageType,
+          displayOrder: img.displayOrder ?? idx,
+        })),
+      );
       setAccuracyMeters(null);
       setLocationConfirmed(true);
       setTargetPropertyId(p.id);
@@ -264,7 +320,12 @@ export function OwnerPropertiesPage() {
         longitude: Number(longitude),
         genderPolicy,
         instantBookingEnabled: true,
-        amenityCodes: ['WIFI', 'LOCKER'],
+        amenityCodes,
+        images: images.map((img, idx) => ({
+          imageUrl: img.imageUrl,
+          imageType: img.imageType,
+          displayOrder: idx,
+        })),
         pricing: {
           hourlyRate: hourlyRate ? Number(hourlyRate) : undefined,
           nightlyRate: Number(nightlyRate),
@@ -334,6 +395,14 @@ export function OwnerPropertiesPage() {
       setMonthlyRate(p.pricing.monthlyRate != null ? String(p.pricing.monthlyRate) : '');
       setSecurityDeposit(String(p.pricing.securityDeposit ?? 0));
     }
+    setAmenityCodes(p.amenities?.length ? p.amenities : ['WIFI', 'LOCKER']);
+    setImages(
+      (p.images ?? []).map((img, idx) => ({
+        imageUrl: img.imageUrl,
+        imageType: img.imageType,
+        displayOrder: img.displayOrder ?? idx,
+      })),
+    );
     setAccuracyMeters(null);
     setLocationConfirmed(true);
     setShowUnlockConfirm(false);
@@ -582,6 +651,135 @@ export function OwnerPropertiesPage() {
               <label htmlFor="prop-deposit" className="mb-1 block text-xs font-medium text-slate-300">Security Deposit (₹)</label>
               <input id="prop-deposit" type="number" min="0" value={securityDeposit} onChange={(e) => setSecurityDeposit(e.target.value)} placeholder="e.g. 2000" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
             </div>
+          </div>
+
+          {/* Facilities & Amenities Selector */}
+          <div className="space-y-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <p className="text-sm font-semibold text-white">Facilities &amp; Amenities</p>
+            <p className="text-xs text-slate-400">Select all facilities available at your hostel/PG.</p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {AMENITY_OPTIONS.map((a) => {
+                const selected = amenityCodes.includes(a.code);
+                return (
+                  <button
+                    key={a.code}
+                    type="button"
+                    onClick={() =>
+                      setAmenityCodes((prev) =>
+                        prev.includes(a.code) ? prev.filter((c) => c !== a.code) : [...prev, a.code],
+                      )
+                    }
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                      selected
+                        ? 'border-cyan-400/60 bg-cyan-500/20 text-cyan-200'
+                        : 'border-slate-700 bg-slate-950/70 text-slate-300 hover:border-slate-600 hover:text-white'
+                    }`}
+                  >
+                    {selected ? '✓ ' : '+ '}
+                    {a.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Hostel Photos & Gallery */}
+          <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                  <ImagePlus className="h-4 w-4 text-cyan-400" /> Hostel Photos &amp; Gallery
+                </p>
+                <p className="text-xs text-slate-400">
+                  Upload photos from your device or add image URLs. They auto-scroll on the customer property page.
+                </p>
+              </div>
+              <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25">
+                <Upload className="h-3.5 w-3.5" />
+                Upload Photos
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    if (files.length === 0) return;
+                    try {
+                      const compressed = await Promise.all(files.map(compressImageFile));
+                      setImages((prev) => [
+                        ...prev,
+                        ...compressed.map((url, idx) => ({
+                          imageUrl: url,
+                          imageType: prev.length === 0 && idx === 0 ? ('COVER' as ImageType) : newImageType,
+                          displayOrder: prev.length + idx,
+                        })),
+                      ]);
+                      pushToast(`Added ${compressed.length} photo(s). Click Save/Update Property to publish.`, 'success');
+                    } catch {
+                      pushToast('Could not process one or more image files', 'error');
+                    } finally {
+                      e.target.value = '';
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={newImageUrl}
+                onChange={(e) => setNewImageUrl(e.target.value)}
+                placeholder="Or paste image URL (https://...)"
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white"
+              />
+              <SelectDropdown
+                ariaLabel="Image Type"
+                value={newImageType}
+                onChange={(val) => setNewImageType(val)}
+                className="w-40"
+                options={[
+                  { value: 'COVER', label: 'Cover' },
+                  { value: 'ROOM', label: 'Room' },
+                  { value: 'COMMON_AREA', label: 'Common Area' },
+                  { value: 'GALLERY', label: 'Gallery' },
+                ]}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  if (!newImageUrl.trim()) return;
+                  setImages((prev) => [
+                    ...prev,
+                    { imageUrl: newImageUrl.trim(), imageType: newImageType, displayOrder: prev.length },
+                  ]);
+                  setNewImageUrl('');
+                }}
+                className="rounded-xl bg-slate-800 px-3.5 py-2 text-xs font-semibold text-white hover:bg-slate-700"
+              >
+                Add URL
+              </button>
+            </div>
+
+            {images.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
+                    <img src={img.imageUrl} alt={`Property ${idx + 1}`} className="h-28 w-full object-cover" />
+                    <div className="flex items-center justify-between px-2 py-1.5 text-[11px]">
+                      <span className="font-medium text-cyan-300">{img.imageType}</span>
+                      <button
+                        type="button"
+                        onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                        className="text-rose-300 hover:text-rose-200"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Location Capture & Confirmation Section */}

@@ -1,7 +1,7 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Heart, MapPin, ShieldCheck, Star, Clock, Flag } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, MapPin, ShieldCheck, Star, Clock, Flag } from 'lucide-react';
 import { propertyApi, userApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -30,12 +30,30 @@ export function PropertyDetailPage() {
   );
   const [stayType, setStayType] = useState<StayType>('SHORT_STAY');
   const [selectedBed, setSelectedBed] = useState<AvailableBedInfo | null>(null);
+  const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [carouselPaused, setCarouselPaused] = useState(false);
 
   const detailsQuery = useQuery({
     queryKey: ['property-detail', propertyId],
     queryFn: () => propertyApi.getDetails(propertyId),
     enabled: Boolean(propertyId),
   });
+
+  const imagesCount = detailsQuery.data?.images?.length ?? 0;
+
+  useEffect(() => {
+    setActiveImageIdx(0);
+  }, [propertyId]);
+
+  useEffect(() => {
+    if (imagesCount <= 1 || carouselPaused) return;
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+    if (reduced) return;
+    const timer = window.setInterval(() => {
+      setActiveImageIdx((prev) => (prev + 1) % imagesCount);
+    }, 3500);
+    return () => window.clearInterval(timer);
+  }, [imagesCount, carouselPaused]);
 
   const availabilityQuery = useQuery({
     queryKey: ['property-availability', propertyId, checkIn, checkOut],
@@ -157,16 +175,63 @@ export function PropertyDetailPage() {
         </div>
 
         {p.images.length > 0 && (
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            {p.images.slice(0, 3).map((img) => (
-              <img
-                key={img.id}
-                src={img.imageUrl}
-                alt={`${p.name} - ${img.imageType}`}
-                loading="lazy"
-                className="h-48 w-full rounded-2xl object-cover"
-              />
-            ))}
+          <div
+            className="relative mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"
+            onMouseEnter={() => setCarouselPaused(true)}
+            onMouseLeave={() => setCarouselPaused(false)}
+          >
+            <div
+              className="flex transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${activeImageIdx * 100}%)` }}
+            >
+              {p.images.map((img) => (
+                <div key={img.id} className="relative h-64 w-full shrink-0 sm:h-80">
+                  <img
+                    src={img.imageUrl}
+                    alt={`${p.name} - ${img.imageType}`}
+                    loading="lazy"
+                    className="h-full w-full object-cover"
+                  />
+                  <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-slate-950/75 px-3 py-1 text-[11px] font-medium text-cyan-200 backdrop-blur-md">
+                    {img.imageType.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {p.images.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous photo"
+                  onClick={() => setActiveImageIdx((prev) => (prev - 1 + p.images.length) % p.images.length)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/15 bg-slate-950/75 p-2 text-white backdrop-blur-md hover:border-cyan-400/50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Next photo"
+                  onClick={() => setActiveImageIdx((prev) => (prev + 1) % p.images.length)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/15 bg-slate-950/75 p-2 text-white backdrop-blur-md hover:border-cyan-400/50"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+                <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/15 bg-slate-950/75 px-3 py-1.5 backdrop-blur-md">
+                  {p.images.map((img, idx) => (
+                    <button
+                      key={img.id}
+                      type="button"
+                      aria-label={`View photo ${idx + 1}`}
+                      onClick={() => setActiveImageIdx(idx)}
+                      className={`h-2 rounded-full transition-all ${
+                        idx === activeImageIdx ? 'w-5 bg-cyan-400' : 'w-2 bg-slate-500 hover:bg-slate-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
