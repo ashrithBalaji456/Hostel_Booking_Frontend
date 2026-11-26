@@ -123,7 +123,13 @@ export function OwnerBookingsPage() {
                   </>
                 )}
                 {b.depositAmount > 0 && (
-                  <button type="button" onClick={() => void ownerApi.settleDeposit(b.id, 0).then(() => { pushToast('Deposit settled', 'success'); refresh(); }).catch((e: Error) => pushToast(e.message, 'error'))} className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200">
+                  <button
+                    type="button"
+                    disabled={b.bookingStatus !== 'COMPLETED'}
+                    title={b.bookingStatus === 'COMPLETED' ? 'Refund full security deposit' : 'Available once guest completes stay (Check-Out)'}
+                    onClick={() => void ownerApi.settleDeposit(b.id, 0).then(() => { pushToast('Deposit settled', 'success'); refresh(); }).catch((e: Error) => pushToast(e.message, 'error'))}
+                    className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200 transition hover:border-cyan-400/50 hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  >
                     Refund Full Deposit
                   </button>
                 )}
