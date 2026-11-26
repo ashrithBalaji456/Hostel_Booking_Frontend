@@ -55,7 +55,7 @@ export function OwnerLayout() {
   return (
     <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-12">
-        <div className="space-y-5 lg:col-span-3 lg:sticky lg:top-20 lg:self-start">
+        <div className="space-y-5 lg:col-span-3 lg:sticky lg:top-20 lg:max-h-[calc(100vh-5.5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
           <aside className="glass-panel h-fit rounded-2xl p-4" aria-label="Owner dashboard navigation">
             <p className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-indigo-300">Owner Workspace</p>
             <nav className="flex flex-wrap gap-1.5 lg:flex-col">
