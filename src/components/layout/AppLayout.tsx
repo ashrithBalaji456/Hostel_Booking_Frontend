@@ -7,11 +7,13 @@ import {
   CalendarCheck,
   Compass,
   Menu,
+  MessageCircle,
   ShieldCheck,
   Sparkles,
   User,
   Users,
   Wallet,
+  Wrench,
   X,
   Zap,
   Briefcase,
@@ -112,10 +114,20 @@ export function AppLayout() {
                   Interview Mode
                 </NavLink>
                 {isAuthenticated && user?.role === 'CUSTOMER' && (
-                  <NavLink to="/account/bookings" className={navLinkClass}>
-                    <User className="h-4 w-4" />
-                    My Stays
-                  </NavLink>
+                  <>
+                    <NavLink to="/account/bookings" className={navLinkClass}>
+                      <User className="h-4 w-4" />
+                      My Stays
+                    </NavLink>
+                    <NavLink to="/account/chat" className={navLinkClass}>
+                      <MessageCircle className="h-4 w-4 text-emerald-400" />
+                      Chats
+                    </NavLink>
+                    <NavLink to="/account/hostel-tickets" className={navLinkClass}>
+                      <Wrench className="h-4 w-4 text-cyan-300" />
+                      Hostel Tickets
+                    </NavLink>
+                  </>
                 )}
               </>
             )}
