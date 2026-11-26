@@ -29,6 +29,8 @@ export function CheckoutPage() {
 
   const propertyId = params.get('propertyId') ?? '';
   const bedId = params.get('bedId') ?? '';
+  const bedIds = (params.get('bedIds') ?? bedId).split(',').map((s) => s.trim()).filter(Boolean);
+  const bedLabels = (params.get('bedLabels') ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   const propertyName = params.get('propertyName') ?? 'Selected Property';
   const roomNumber = params.get('roomNumber') ?? '';
   const bedNumber = params.get('bedNumber') ?? '';
@@ -37,8 +39,10 @@ export function CheckoutPage() {
   const stayType = (params.get('stayType') ?? 'SHORT_STAY') as StayType;
   const initialCouponCode = params.get('couponCode') ?? '';
 
-  const [booking, setBooking] = useState<BookingResponse | null>(null);
-  const [payment, setPayment] = useState<PaymentResponse | null>(null);
+  const [bookings, setBookings] = useState<BookingResponse[]>([]);
+  const booking = bookings[0] ?? null;
+  const [payments, setPayments] = useState<PaymentResponse[]>([]);
+  const payment = payments[0] ?? null;
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
   const [idempotencyKey] = useState(() => `web-${crypto.randomUUID()}`);
   const [processingPayment, setProcessingPayment] = useState(false);
@@ -60,41 +64,55 @@ export function CheckoutPage() {
   const handleCreateBooking = async (values: GuestForm) => {
     setErrorMsg(null);
     try {
-      const created = await bookingApi.create({
-        propertyId,
-        bedId,
-        checkIn,
-        checkOut,
-        stayType,
-        guestName: values.guestName,
-        guestPhone: values.guestPhone,
-        requestOwnerApproval: values.requestOwnerApproval,
-        ...(initialCouponCode ? { couponCode: initialCouponCode } : {}),
-      });
-      setBooking(created);
-      pushToast(`Reservation created (${created.bookingReference})`, 'success');
+      const createdList: BookingResponse[] = [];
+      for (const targetBedId of bedIds) {
+        const created = await bookingApi.create({
+          propertyId,
+          bedId: targetBedId,
+          checkIn,
+          checkOut,
+          stayType,
+          guestName: values.guestName,
+          guestPhone: values.guestPhone,
+          requestOwnerApproval: values.requestOwnerApproval,
+          ...(initialCouponCode ? { couponCode: initialCouponCode } : {}),
+        });
+        createdList.push(created);
+      }
+      setBookings(createdList);
+      pushToast(
+        createdList.length > 1
+          ? `${createdList.length} bed reservations created!`
+          : `Reservation created (${createdList[0].bookingReference})`,
+        'success',
+      );
     } catch (err) {
       setErrorMsg(err instanceof ApiClientError ? err.message : 'Unable to create booking');
     }
   };
 
   const handlePay = async (simulateFailure: boolean) => {
-    if (!booking) return;
+    if (bookings.length === 0) return;
     setProcessingPayment(true);
     setErrorMsg(null);
     try {
-      const initiated = await paymentApi.initiate(booking.id, paymentMethod, idempotencyKey);
-      const verified = await paymentApi.verify(initiated.id, {
-        providerTransactionId: simulateFailure ? 'FAIL_MOCK_TXN' : `txn_${Date.now()}`,
-        simulateFailure,
-        failureReason: simulateFailure ? 'Simulated payment failure' : undefined,
-      });
-      setPayment(verified);
-      const updatedBooking = await bookingApi.getById(booking.id);
-      setBooking(updatedBooking);
+      const verifiedList: PaymentResponse[] = [];
+      const updatedList: BookingResponse[] = [];
+      for (const b of bookings) {
+        const initiated = await paymentApi.initiate(b.id, paymentMethod, `${idempotencyKey}-${b.id}`);
+        const verified = await paymentApi.verify(initiated.id, {
+          providerTransactionId: simulateFailure ? 'FAIL_MOCK_TXN' : `txn_${Date.now()}`,
+          simulateFailure,
+          failureReason: simulateFailure ? 'Simulated payment failure' : undefined,
+        });
+        verifiedList.push(verified);
+        updatedList.push(await bookingApi.getById(b.id));
+      }
+      setPayments(verifiedList);
+      setBookings(updatedList);
 
-      if (verified.paymentStatus === 'SUCCESS') {
-        pushToast('Payment verified and booking confirmed!', 'success');
+      if (verifiedList.every((v) => v.paymentStatus === 'SUCCESS')) {
+        pushToast('Payment verified and booking(s) confirmed!', 'success');
       } else {
         pushToast('Payment failed. You can retry before hold expiry.', 'error');
       }
@@ -105,7 +123,7 @@ export function CheckoutPage() {
     }
   };
 
-  if (!propertyId || !bedId) {
+  if (!propertyId || bedIds.length === 0) {
     return (
       <div className="mx-auto max-w-xl px-4 py-12 text-center">
         <div className="glass-panel rounded-2xl p-8">
@@ -122,7 +140,7 @@ export function CheckoutPage() {
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-white">Booking &amp; Checkout</h1>
       <p className="mt-1 text-sm text-slate-400">
-        {propertyName} · Room {roomNumber} · Bed {bedNumber}
+        {propertyName} · {bedLabels.length > 0 ? bedLabels.join(', ') : `Room ${roomNumber} · Bed ${bedNumber}`}
       </p>
 
       {errorMsg && (
@@ -198,12 +216,24 @@ export function CheckoutPage() {
             <div className="flex justify-between"><span className="text-slate-400">Extra Charges</span><span>{formatINR(booking.extraCharges)}</span></div>
             <div className="flex justify-between"><span className="text-slate-400">Discount</span><span className="text-emerald-300">-{formatINR(booking.discountAmount)}</span></div>
             <div className="flex justify-between border-t border-slate-800 pt-2 text-base font-bold text-white">
-              <span>Total Payable</span><span>{formatINR(booking.totalAmount)}</span>
+              <span>Total Payable ({bookings.length} Bed{bookings.length > 1 ? 's' : ''})</span>
+              <span>{formatINR(bookings.reduce((sum, b) => sum + b.totalAmount, 0))}</span>
             </div>
             <div className="flex justify-between text-xs text-slate-400">
-              <span>Amount Paid</span><span>{formatINR(booking.amountPaid)}</span>
+              <span>Amount Paid</span>
+              <span>{formatINR(bookings.reduce((sum, b) => sum + b.amountPaid, 0))}</span>
             </div>
           </div>
+          {bookings.length > 1 && (
+            <div className="space-y-1 rounded-xl border border-slate-800 bg-slate-950/60 p-3 text-xs text-slate-300">
+              {bookings.map((b) => (
+                <div key={b.id} className="flex justify-between">
+                  <span className="font-mono text-cyan-300">{b.bookingReference} · Bed {b.bedNumber}</span>
+                  <span>{formatINR(b.totalAmount)} · {b.bookingStatus}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {booking.approvalRequired && booking.bookingStatus === 'PENDING' && (
             <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-200">
@@ -237,7 +267,9 @@ export function CheckoutPage() {
                   onClick={() => void handlePay(false)}
                   className="flex-1 rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                 >
-                  {processingPayment ? 'Verifying Payment...' : `Pay ${formatINR(booking.totalAmount)}`}
+                  {processingPayment
+                    ? 'Verifying Payment...'
+                    : `Pay ${formatINR(bookings.reduce((sum, b) => sum + b.totalAmount, 0))}`}
                 </button>
                 <button
                   type="button"
@@ -260,10 +292,10 @@ export function CheckoutPage() {
 
           <button
             type="button"
-            onClick={() => navigate(`/account/bookings/${booking.id}`)}
+            onClick={() => navigate(bookings.length > 1 ? '/account/bookings' : `/account/bookings/${booking.id}`)}
             className="w-full rounded-xl border border-slate-700 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-800"
           >
-            View Booking Details
+            {bookings.length > 1 ? 'View All Bookings' : 'View Booking Details'}
           </button>
         </div>
       )}

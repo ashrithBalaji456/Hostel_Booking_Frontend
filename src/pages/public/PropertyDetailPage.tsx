@@ -52,7 +52,7 @@ export function PropertyDetailPage() {
     searchParams.get('checkOut') ? searchParams.get('checkOut')!.slice(0, 16) : defaultCheckOutLocal(24),
   );
   const [stayType, setStayType] = useState<StayType>('SHORT_STAY');
-  const [selectedBed, setSelectedBed] = useState<AvailableBedInfo | null>(null);
+  const [selectedBeds, setSelectedBeds] = useState<AvailableBedInfo[]>([]);
   const [appliedCouponCode, setAppliedCouponCode] = useState('');
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [carouselPaused, setCarouselPaused] = useState(false);
@@ -117,24 +117,34 @@ export function PropertyDetailPage() {
 
   const p = detailsQuery.data;
 
+  const handleToggleBed = (bed: AvailableBedInfo) => {
+    setSelectedBeds((prev) =>
+      prev.some((b) => b.bedId === bed.bedId) ? prev.filter((b) => b.bedId !== bed.bedId) : [...prev, bed],
+    );
+  };
+
   const handleProceedToCheckout = async () => {
-    if (!selectedBed) {
-      pushToast('Please select an available bed first', 'info');
+    if (selectedBeds.length === 0) {
+      pushToast('Please select at least one available bed first', 'info');
       return;
     }
-    // Revalidate availability before navigating to checkout
+    // Revalidate availability for all selected beds before navigating to checkout
     const fresh = await availabilityQuery.refetch();
-    const stillAvailable = fresh.data?.availableBeds.some((b) => b.bedId === selectedBed.bedId);
-    if (!stillAvailable) {
-      pushToast('That bed was just booked or held. Please choose another bed.', 'error');
-      setSelectedBed(null);
+    const availIds = new Set(fresh.data?.availableBeds.map((b) => b.bedId) ?? []);
+    const unavailable = selectedBeds.filter((b) => !availIds.has(b.bedId));
+    if (unavailable.length > 0) {
+      pushToast('One or more selected beds were just booked or held. Please review your selection.', 'error');
+      setSelectedBeds((prev) => prev.filter((b) => availIds.has(b.bedId)));
       return;
     }
+    const firstBed = selectedBeds[0];
     const qs = new URLSearchParams({
       propertyId: p.id,
-      bedId: selectedBed.bedId,
-      bedNumber: selectedBed.bedNumber,
-      roomNumber: selectedBed.roomNumber,
+      bedId: firstBed.bedId,
+      bedIds: selectedBeds.map((b) => b.bedId).join(','),
+      bedLabels: selectedBeds.map((b) => `Room ${b.roomNumber} · ${b.bedNumber}`).join(','),
+      bedNumber: selectedBeds.map((b) => b.bedNumber).join(', '),
+      roomNumber: Array.from(new Set(selectedBeds.map((b) => b.roomNumber))).join(', '),
       propertyName: p.name,
       checkIn: toIsoUtc(checkIn),
       checkOut: toIsoUtc(checkOut),
@@ -384,11 +394,11 @@ export function PropertyDetailPage() {
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <label htmlFor="pd-in" className="block text-xs text-slate-400">Check-in</label>
-                <DateTimePicker id="pd-in" ariaLabel="Check-in" value={checkIn} onChange={(val) => { setCheckIn(val); setSelectedBed(null); }} className="mt-1" />
+                <DateTimePicker id="pd-in" ariaLabel="Check-in" value={checkIn} onChange={(val) => { setCheckIn(val); setSelectedBeds([]); }} className="mt-1" />
               </div>
               <div>
                 <label htmlFor="pd-out" className="block text-xs text-slate-400">Check-out</label>
-                <DateTimePicker id="pd-out" ariaLabel="Check-out" value={checkOut} onChange={(val) => { setCheckOut(val); setSelectedBed(null); }} className="mt-1" />
+                <DateTimePicker id="pd-out" ariaLabel="Check-out" value={checkOut} onChange={(val) => { setCheckOut(val); setSelectedBeds([]); }} className="mt-1" />
               </div>
               <div>
                 <label htmlFor="pd-stay" className="block text-xs text-slate-400">Stay Type</label>
@@ -410,10 +420,10 @@ export function PropertyDetailPage() {
           <InteractiveBedSelector
             rooms={p.rooms}
             availability={availabilityQuery.data}
-            selectedBedId={selectedBed?.bedId ?? null}
+            selectedBedIds={selectedBeds.map((b) => b.bedId)}
             isLoadingAvailability={availabilityQuery.isFetching}
             onRefreshAvailability={() => void availabilityQuery.refetch()}
-            onSelectBed={setSelectedBed}
+            onSelectBed={handleToggleBed}
           />
         </div>
 
@@ -424,20 +434,33 @@ export function PropertyDetailPage() {
           </p>
 
           <div className="mt-4 space-y-2 rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Selected Bed</span>
-              <span className="font-medium text-white">
-                {selectedBed ? `Room ${selectedBed.roomNumber} · ${selectedBed.bedNumber}` : 'None selected'}
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-slate-400">
+                Selected Bed{selectedBeds.length > 1 ? `s (${selectedBeds.length})` : ''}
               </span>
+              {selectedBeds.length === 0 ? (
+                <span className="font-medium text-white">None selected</span>
+              ) : (
+                <div className="flex flex-wrap justify-end gap-1">
+                  {selectedBeds.map((b) => (
+                    <span
+                      key={b.bedId}
+                      className="rounded-md border border-cyan-500/40 bg-cyan-500/15 px-2 py-0.5 text-xs font-medium text-cyan-200"
+                    >
+                      {b.bedNumber}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex justify-between">
               <span className="text-slate-400">Stay Type</span>
               <span className="font-medium text-white">{stayType.replace('_', ' ')}</span>
             </div>
-            {selectedBed?.nightlyRate != null && (
+            {selectedBeds[0]?.nightlyRate != null && (
               <div className="flex justify-between">
-                <span className="text-slate-400">Nightly Rate</span>
-                <span className="font-medium text-cyan-300">{formatINR(selectedBed.nightlyRate)}</span>
+                <span className="text-slate-400">Nightly Rate (per bed)</span>
+                <span className="font-medium text-cyan-300">{formatINR(selectedBeds[0].nightlyRate)}</span>
               </div>
             )}
           </div>
@@ -445,8 +468,9 @@ export function PropertyDetailPage() {
           <PriceCalculatorCard
             propertyId={p.id}
             pricing={p.pricing}
-            hourlyRateOverride={selectedBed?.hourlyRate}
-            nightlyRateOverride={selectedBed?.nightlyRate}
+            bedCount={Math.max(1, selectedBeds.length)}
+            hourlyRateOverride={selectedBeds[0]?.hourlyRate}
+            nightlyRateOverride={selectedBeds[0]?.nightlyRate}
             checkIn={checkIn}
             checkOut={checkOut}
             stayType={stayType}
@@ -459,17 +483,19 @@ export function PropertyDetailPage() {
             onChangeDuration={(nextOut, nextType) => {
               setCheckOut(nextOut);
               setStayType(nextType);
-              setSelectedBed(null);
+              setSelectedBeds([]);
             }}
           />
 
           <button
             type="button"
-            disabled={!selectedBed}
+            disabled={selectedBeds.length === 0}
             onClick={() => void handleProceedToCheckout()}
             className="mt-5 w-full rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 py-3 text-sm font-semibold text-white shadow-lg shadow-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isAuthenticated ? 'Continue to Booking & Payment' : 'Sign in to Book'}
+            {isAuthenticated
+              ? `Continue to Booking (${selectedBeds.length || 1} Bed${selectedBeds.length > 1 ? 's' : ''})`
+              : 'Sign in to Book'}
           </button>
         </aside>
       </div>

@@ -7,7 +7,8 @@ import { formatINR } from '../../utils/format';
 interface InteractiveBedSelectorProps {
   rooms: RoomResponse[];
   availability?: PropertyAvailabilityResponse;
-  selectedBedId: string | null;
+  selectedBedId?: string | null;
+  selectedBedIds?: string[];
   isLoadingAvailability: boolean;
   onRefreshAvailability: () => void;
   onSelectBed: (bed: AvailableBedInfo) => void;
@@ -17,10 +18,12 @@ export function InteractiveBedSelector({
   rooms,
   availability,
   selectedBedId,
+  selectedBedIds,
   isLoadingAvailability,
   onRefreshAvailability,
   onSelectBed,
 }: InteractiveBedSelectorProps) {
+  const activeBedIds = selectedBedIds ?? (selectedBedId ? [selectedBedId] : []);
   const [viewMode, setViewMode] = useState<'spatial' | 'list'>('spatial');
   const [selectedFloor, setSelectedFloor] = useState<string>('ALL');
   const [selectedSharing, setSelectedSharing] = useState<string>('ALL');
@@ -61,7 +64,7 @@ export function InteractiveBedSelector({
           <h2 className="text-lg font-semibold text-white">Room &amp; Bed Selector</h2>
           <p className="text-xs text-slate-400">
             {availability
-              ? `${availability.availableBedsCount} of ${availability.totalBeds} beds available for your selected window`
+              ? `${availability.availableBedsCount} of ${availability.totalBeds} beds available · Tap one or more beds for multi-bed booking`
               : 'Select check-in and check-out times to check live bed availability'}
           </p>
         </div>
@@ -206,7 +209,7 @@ export function InteractiveBedSelector({
                 {room.beds.map((bed) => {
                   const availInfo = availableMap.get(bed.id);
                   const isAvailable = Boolean(availInfo);
-                  const isSelected = selectedBedId === bed.id;
+                  const isSelected = activeBedIds.includes(bed.id);
 
                   return (
                     <button
@@ -250,7 +253,7 @@ export function InteractiveBedSelector({
             room.beds.map((bed) => {
               const availInfo = availableMap.get(bed.id);
               const isAvailable = Boolean(availInfo);
-              const isSelected = selectedBedId === bed.id;
+              const isSelected = activeBedIds.includes(bed.id);
               return (
                 <div key={bed.id} className="flex items-center justify-between px-4 py-3 text-sm">
                   <div>

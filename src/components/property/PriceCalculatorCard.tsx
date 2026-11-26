@@ -8,6 +8,7 @@ import { formatINR } from '../../utils/format';
 interface PriceCalculatorCardProps {
   propertyId: string;
   pricing?: PricingResponse | null;
+  bedCount?: number;
   hourlyRateOverride?: number | null;
   nightlyRateOverride?: number | null;
   checkIn: string;
@@ -30,6 +31,7 @@ function toLocalDateTimeInput(date: Date): string {
 export function PriceCalculatorCard({
   propertyId,
   pricing,
+  bedCount = 1,
   hourlyRateOverride,
   nightlyRateOverride,
   checkIn,
@@ -109,9 +111,16 @@ export function PriceCalculatorCard({
     depositAmount = pricing?.securityDeposit ?? 0;
   }
 
+  const count = Math.max(1, bedCount);
+  baseAmount = baseAmount * count;
+  depositAmount = depositAmount * count;
+  if (rateLabel && count > 1) {
+    rateLabel = `${rateLabel} × ${count} beds`;
+  }
+
   const discountPct = pricing?.discountPercentage ?? 0;
   const discountAmount = Math.round(baseAmount * (discountPct / 100) * 100) / 100;
-  const extraCharges = pricing?.extraCharges ?? 0;
+  const extraCharges = (pricing?.extraCharges ?? 0) * count;
   const couponDiscount = couponPreview ? couponPreview.discountAmount : 0;
   const totalAmount = Math.max(
     0,
