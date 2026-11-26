@@ -28,8 +28,9 @@ export function AdminDashboardPage() {
       {a && (
         <div className="glass-panel rounded-2xl p-6">
           <h2 className="text-base font-semibold text-white">Operational &amp; Trust Metrics</h2>
-          <div className="mt-4 grid gap-4 text-sm sm:grid-cols-4">
-            <div><p className="text-xs text-slate-400">Customers / Owners</p><p className="font-semibold text-white">{a.totalCustomers} / {a.totalOwners}</p></div>
+          <div className="mt-4 grid gap-4 text-sm sm:grid-cols-5">
+            <div><p className="text-xs text-slate-400">Customers</p><p className="font-semibold text-cyan-300">{a.totalCustomers}</p></div>
+            <div><p className="text-xs text-slate-400">Property Owners</p><p className="font-semibold text-indigo-300">{a.totalOwners}</p></div>
             <div><p className="text-xs text-slate-400">Approved Properties</p><p className="font-semibold text-emerald-300">{a.approvedProperties} / {a.totalProperties}</p></div>
             <div><p className="text-xs text-slate-400">Open Disputes</p><p className="font-semibold text-amber-300">{a.openDisputes}</p></div>
             <div><p className="text-xs text-slate-400">Open Safety Complaints</p><p className="font-semibold text-rose-300">{a.openSafetyComplaints}</p></div>

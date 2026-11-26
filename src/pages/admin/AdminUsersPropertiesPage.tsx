@@ -14,47 +14,80 @@ export function AdminUsersPropertiesPage() {
     action: () => Promise<void>;
   } | null>(null);
 
-  const usersQuery = useQuery({ queryKey: ['admin-users'], queryFn: () => adminApi.listUsers({ page: 0, size: 20 }) });
-  const propsQuery = useQuery({ queryKey: ['admin-properties'], queryFn: () => adminApi.listProperties({ page: 0, size: 20 }) });
+  const usersQuery = useQuery({ queryKey: ['admin-users'], queryFn: () => adminApi.listUsers({ page: 0, size: 50 }) });
+  const propsQuery = useQuery({ queryKey: ['admin-properties'], queryFn: () => adminApi.listProperties({ page: 0, size: 50 }) });
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['admin-users'] });
     void qc.invalidateQueries({ queryKey: ['admin-properties'] });
   };
 
+  const allUsers = usersQuery.data?.content ?? [];
+  const customers = allUsers.filter((u) => u.role === 'CUSTOMER');
+  const owners = allUsers.filter((u) => u.role === 'PROPERTY_OWNER');
+
+  const renderUserRow = (u: (typeof allUsers)[number]) => (
+    <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm">
+      <div>
+        <p className="font-semibold text-white">{u.fullName}</p>
+        <p className="text-xs text-slate-400">{u.email} · {u.phoneNumber}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <StatusBadge status={u.accountStatus} />
+        <button
+          type="button"
+          onClick={() =>
+            setConfirmState({
+              title: u.accountStatus === 'ACTIVE' ? `Suspend ${u.fullName}?` : `Activate ${u.fullName}?`,
+              description: 'This immediately updates the user account access across the platform.',
+              action: async () => {
+                await adminApi.updateUserStatus(u.id, u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
+                pushToast('User status updated', 'success');
+                refresh();
+              },
+            })
+          }
+          className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
+        >
+          {u.accountStatus === 'ACTIVE' ? 'Suspend' : 'Activate'}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="glass-panel rounded-2xl p-6">
-        <h1 className="text-xl font-bold text-white">Users</h1>
-        <div className="mt-4 space-y-2">
-          {usersQuery.data?.content.map((u) => (
-            <div key={u.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm">
-              <div>
-                <p className="font-semibold text-white">{u.fullName} · {u.role}</p>
-                <p className="text-xs text-slate-400">{u.email} · {u.phoneNumber}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusBadge status={u.accountStatus} />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfirmState({
-                      title: u.accountStatus === 'ACTIVE' ? `Suspend ${u.fullName}?` : `Activate ${u.fullName}?`,
-                      description: 'This immediately updates the user account access across the platform.',
-                      action: async () => {
-                        await adminApi.updateUserStatus(u.id, u.accountStatus === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE');
-                        pushToast('User status updated', 'success');
-                        refresh();
-                      },
-                    })
-                  }
-                  className="rounded-lg border border-slate-700 px-3 py-1 text-xs text-slate-200 hover:bg-slate-800"
-                >
-                  {u.accountStatus === 'ACTIVE' ? 'Suspend' : 'Activate'}
-                </button>
-              </div>
-            </div>
-          ))}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <div className="glass-panel rounded-2xl p-6">
+          <div className="flex items-center justify-between gap-2">
+            <h1 className="text-xl font-bold text-white">Customers (Users)</h1>
+            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300">
+              {customers.length}
+            </span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {customers.length === 0 ? (
+              <p className="text-xs text-slate-400">No registered customers yet.</p>
+            ) : (
+              customers.map(renderUserRow)
+            )}
+          </div>
+        </div>
+
+        <div className="glass-panel rounded-2xl p-6">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-xl font-bold text-white">Property Owners</h2>
+            <span className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2.5 py-0.5 text-xs font-semibold text-indigo-300">
+              {owners.length}
+            </span>
+          </div>
+          <div className="mt-4 space-y-2">
+            {owners.length === 0 ? (
+              <p className="text-xs text-slate-400">No registered property owners yet.</p>
+            ) : (
+              owners.map(renderUserRow)
+            )}
+          </div>
         </div>
       </div>
 
