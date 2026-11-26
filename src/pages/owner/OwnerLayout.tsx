@@ -64,36 +64,7 @@ export function OwnerLayout() {
             <nav className="flex flex-wrap gap-1.5 lg:flex-col">
               {LINKS.map((item) => {
                 const Icon = item.icon;
-                const properties = propertiesQuery.data ?? [];
-  const allBedIds = properties.flatMap((p) => (p.rooms ?? []).flatMap((r) => (r.beds ?? []).map((b) => b.id)));
-  const bedBlocksQuery = useQuery({
-    queryKey: ['owner-all-bed-blocks', allBedIds.join(',')],
-    queryFn: async () => {
-      const results = await Promise.all(
-        allBedIds.map(async (id) => ({
-          id,
-          blocks: await ownerApi.getBlocksForBed(id).catch(() => []),
-        })),
-      );
-      const nowMs = Date.now();
-      const blocked = new Set<string>();
-      for (const item of results) {
-        if (
-          item.blocks.some(
-            (blk) => new Date(blk.startTime).getTime() <= nowMs + 60_000 && new Date(blk.endTime).getTime() > nowMs,
-          )
-        ) {
-          blocked.add(item.id);
-        }
-      }
-      return Array.from(blocked);
-    },
-    enabled: allBedIds.length > 0,
-    retry: false,
-  });
-  const blockedBedIds = new Set(bedBlocksQuery.data ?? []);
-
-  return (
+                return (
                   <NavLink
                     key={item.to}
                     to={item.to}
