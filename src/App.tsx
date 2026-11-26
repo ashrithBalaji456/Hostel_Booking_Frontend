@@ -81,6 +81,7 @@ export function App() {
               <Route path="bookings" element={<OwnerBookingsPage />} />
               <Route path="payouts" element={<OwnerPayoutsPage />} />
               <Route path="verification" element={<OwnerVerificationPage />} />
+              <Route path="support" element={<SupportPage />} />
             </Route>
           </Route>
 

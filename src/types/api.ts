@@ -364,13 +364,21 @@ export interface SupportTicket {
   id: string;
   ticketReference: string;
   userId: string;
+  userName?: string;
+  userEmail?: string;
+  userPhone?: string;
+  userRole?: string;
   bookingId?: string;
+  bookingReference?: string;
+  propertyName?: string;
   assignedAdminId?: string;
   category: string;
   subject: string;
+  initialMessage?: string;
   status: string;
   resolution?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface SupportMessage {

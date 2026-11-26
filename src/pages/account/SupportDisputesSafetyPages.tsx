@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { customerOpsApi } from '../../api/endpoints';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { formatIST } from '../../utils/format';
 
 export function SupportPage() {
+  const { user } = useAuth();
   const { pushToast } = useToast();
   const qc = useQueryClient();
-  const [category, setCategory] = useState('BOOKING_ISSUE');
+  const isOwner = user?.role === 'PROPERTY_OWNER';
+  const [category, setCategory] = useState(isOwner ? 'PROPERTY_ISSUE' : 'BOOKING_ISSUE');
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [bookingId, setBookingId] = useState('');
@@ -51,7 +54,10 @@ export function SupportPage() {
   return (
     <div className="space-y-6">
       <div className="glass-panel rounded-2xl p-6">
-        <h1 className="text-xl font-bold text-white">Customer Support</h1>
+        <h1 className="text-xl font-bold text-white">{isOwner ? 'Owner Support & Helpdesk' : 'Customer Support'}</h1>
+        <p className="mt-1 text-xs text-slate-400">
+          Raise a ticket for any issue. All details go directly to the Admin team until marked resolved.
+        </p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -62,9 +68,10 @@ export function SupportPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <select value={category} onChange={(e) => setCategory(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
               <option value="BOOKING_ISSUE">Booking Issue</option>
-              <option value="PAYMENT_ISSUE">Payment Issue</option>
+              <option value="PAYMENT_ISSUE">Payment / Payout Issue</option>
               <option value="REFUND_ISSUE">Refund Issue</option>
-              <option value="PROPERTY_ISSUE">Property Issue</option>
+              <option value="PROPERTY_ISSUE">Property / Room Issue</option>
+              <option value="VERIFICATION_ISSUE">KYC / Verification Issue</option>
               <option value="SAFETY_ISSUE">Safety Issue</option>
               <option value="OTHER">Other</option>
             </select>
@@ -85,6 +92,9 @@ export function SupportPage() {
               <div>
                 <span className="font-mono text-xs text-cyan-300">{t.ticketReference}</span>
                 <h2 className="text-sm font-semibold text-white">{t.subject}</h2>
+                {t.resolution && (
+                  <p className="mt-1 text-xs text-emerald-300">Admin Resolution: {t.resolution}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <StatusBadge status={t.status} />
