@@ -53,8 +53,13 @@ export default function PropertyMap({
       ? [validMarkers[0].latitude, validMarkers[0].longitude]
       : [12.9716, 77.5946];
 
-    const map = L.map(containerRef.current).setView(defaultCenter, 13);
+    const map = L.map(containerRef.current, {
+      zoomAnimation: false,
+      fadeAnimation: false,
+      markerZoomAnimation: false,
+    }).setView(defaultCenter, 13);
     mapRef.current = map;
+    let disposed = false;
 
     const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -122,20 +127,22 @@ export default function PropertyMap({
     }
 
     const timer = window.setTimeout(() => {
-      map.invalidateSize({ pan: false });
+      if (!disposed) map.invalidateSize({ pan: false });
     }, 120);
     const observer =
       typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(() => {
-            map.invalidateSize({ pan: false });
+            if (!disposed) map.invalidateSize({ pan: false });
           })
         : null;
     observer?.observe(containerRef.current);
 
     return () => {
+      disposed = true;
       window.clearTimeout(timer);
       window.clearTimeout(fallbackTimer);
       observer?.disconnect();
+      map.stop();
       map.remove();
       mapRef.current = null;
     };
