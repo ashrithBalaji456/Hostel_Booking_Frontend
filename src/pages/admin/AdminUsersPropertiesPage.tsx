@@ -107,57 +107,63 @@ export function AdminUsersPropertiesPage() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfirmState({
-                      title: `Approve ${p.name}?`,
-                      description: 'Approved properties become visible in public search and bookable.',
-                      action: async () => {
-                        await adminApi.approveProperty(p.id);
-                        pushToast('Property approved', 'success');
-                        refresh();
-                      },
-                    })
-                  }
-                  className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white"
-                >
-                  Approve
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfirmState({
-                      title: `Reject ${p.name}?`,
-                      description: 'The owner will be notified that verification was rejected.',
-                      action: async () => {
-                        await adminApi.rejectProperty(p.id, 'Incomplete documentation');
-                        pushToast('Property rejected', 'info');
-                        refresh();
-                      },
-                    })
-                  }
-                  className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold text-white"
-                >
-                  Reject
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setConfirmState({
-                      title: `Suspend ${p.name}?`,
-                      description: 'Suspending removes the property from active listings.',
-                      action: async () => {
-                        await adminApi.suspendProperty(p.id);
-                        pushToast('Property suspended', 'info');
-                        refresh();
-                      },
-                    })
-                  }
-                  className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-semibold text-white"
-                >
-                  Suspend
-                </button>
+                {(p.verificationStatus !== 'APPROVED' || p.listingStatus === 'SUSPENDED') && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmState({
+                        title: `Approve ${p.name}?`,
+                        description: 'Approved properties become visible in public search and bookable.',
+                        action: async () => {
+                          await adminApi.approveProperty(p.id);
+                          pushToast('Property approved', 'success');
+                          refresh();
+                        },
+                      })
+                    }
+                    className="rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
+                  >
+                    Approve
+                  </button>
+                )}
+                {p.verificationStatus === 'PENDING' && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmState({
+                        title: `Reject ${p.name}?`,
+                        description: 'The owner will be notified that verification was rejected.',
+                        action: async () => {
+                          await adminApi.rejectProperty(p.id, 'Incomplete documentation');
+                          pushToast('Property rejected', 'info');
+                          refresh();
+                        },
+                      })
+                    }
+                    className="rounded-lg bg-amber-600 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-500"
+                  >
+                    Reject
+                  </button>
+                )}
+                {p.listingStatus !== 'SUSPENDED' && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirmState({
+                        title: `Suspend ${p.name}?`,
+                        description: 'Suspending removes the property from active listings.',
+                        action: async () => {
+                          await adminApi.suspendProperty(p.id);
+                          pushToast('Property suspended', 'info');
+                          refresh();
+                        },
+                      })
+                    }
+                    className="rounded-lg bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-500"
+                  >
+                    Suspend
+                  </button>
+                )}
               </div>
             </div>
           ))}
