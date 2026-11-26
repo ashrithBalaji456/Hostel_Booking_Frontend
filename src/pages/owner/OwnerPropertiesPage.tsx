@@ -130,6 +130,7 @@ export function OwnerPropertiesPage() {
   const [accuracyMeters, setAccuracyMeters] = useState<number | null>(initialDraft.accuracyMeters ?? null);
   const [locationConfirmed, setLocationConfirmed] = useState(initialDraft.locationConfirmed ?? false);
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
+  const [customFacility, setCustomFacility] = useState('');
 
   useEffect(() => {
     try {
@@ -680,6 +681,59 @@ export function OwnerPropertiesPage() {
                   </button>
                 );
               })}
+              {amenityCodes
+                .filter((code) => !AMENITY_OPTIONS.some((a) => a.code === code))
+                .map((code) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setAmenityCodes((prev) => prev.filter((c) => c !== code))}
+                    title="Click to remove custom facility"
+                    className="rounded-xl border border-cyan-400/60 bg-cyan-500/20 px-3 py-1.5 text-xs font-medium text-cyan-200 transition hover:border-rose-400/60 hover:bg-rose-500/15 hover:text-rose-200"
+                  >
+                    ✓ {code.replace(/_/g, ' ')} ×
+                  </button>
+                ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-2">
+              <input
+                type="text"
+                value={customFacility}
+                onChange={(e) => setCustomFacility(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const code = customFacility
+                      .trim()
+                      .toUpperCase()
+                      .replace(/[^A-Z0-9]+/g, '_')
+                      .replace(/^_+|_+$/g, '')
+                      .slice(0, 50);
+                    if (!code) return;
+                    setAmenityCodes((prev) => (prev.includes(code) ? prev : [...prev, code]));
+                    setCustomFacility('');
+                  }
+                }}
+                placeholder="Custom facility (e.g. Gym, CCTV, Power Backup)"
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-white placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const code = customFacility
+                    .trim()
+                    .toUpperCase()
+                    .replace(/[^A-Z0-9]+/g, '_')
+                    .replace(/^_+|_+$/g, '')
+                    .slice(0, 50);
+                  if (!code) return;
+                  setAmenityCodes((prev) => (prev.includes(code) ? prev : [...prev, code]));
+                  setCustomFacility('');
+                }}
+                className="rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-200 transition hover:bg-cyan-500/25"
+              >
+                + Add Custom Facility
+              </button>
             </div>
           </div>
 

@@ -47,8 +47,6 @@ export function PropertyDetailPage() {
 
   useEffect(() => {
     if (imagesCount <= 1 || carouselPaused) return;
-    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    if (reduced) return;
     const timer = window.setInterval(() => {
       setActiveImageIdx((prev) => (prev + 1) % imagesCount);
     }, 3500);

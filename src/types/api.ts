@@ -162,6 +162,7 @@ export interface PropertySearchItemResponse {
   averageRating?: number;
   reviewCount: number;
   mainImage?: string;
+  imageUrls?: string[];
   availableStayTypes: StayType[];
 }
 

@@ -1,22 +1,68 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Star, BedDouble, ShieldCheck } from 'lucide-react';
 import type { PropertySearchItemResponse } from '../../types/api';
 import { formatINR } from '../../utils/format';
 
 export function PropertyCard({ property }: { property: PropertySearchItemResponse }) {
+  const images =
+    property.imageUrls && property.imageUrls.length > 0
+      ? property.imageUrls
+      : property.mainImage
+      ? [property.mainImage]
+      : [];
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [property.id, images.length]);
+
+  useEffect(() => {
+    if (images.length <= 1 || paused) return;
+    const timer = window.setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % images.length);
+    }, 3200);
+    return () => window.clearInterval(timer);
+  }, [images.length, paused]);
+
   return (
     <Link
       to={`/properties/${property.id}`}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
       className="glass-panel group flex flex-col overflow-hidden rounded-2xl transition hover:border-cyan-500/40"
     >
       <div className="relative h-44 w-full overflow-hidden bg-slate-900">
-        {property.mainImage ? (
-          <img
-            src={property.mainImage}
-            alt={property.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-          />
+        {images.length > 0 ? (
+          <>
+            <div
+              className="flex h-full w-full transition-transform duration-500 ease-out"
+              style={{ transform: `translateX(-${activeIdx * 100}%)` }}
+            >
+              {images.map((src, idx) => (
+                <img
+                  key={`${property.id}-img-${idx}`}
+                  src={src}
+                  alt={`${property.name} photo ${idx + 1}`}
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                  className="h-full w-full shrink-0 object-cover transition duration-300 group-hover:scale-105"
+                />
+              ))}
+            </div>
+            {images.length > 1 && (
+              <div className="absolute bottom-2.5 right-2.5 flex items-center gap-1 rounded-full bg-slate-950/75 px-2 py-1 backdrop-blur">
+                {images.map((_, idx) => (
+                  <span
+                    key={idx}
+                    className={`h-1.5 rounded-full transition-all ${
+                      idx === activeIdx ? 'w-3.5 bg-cyan-400' : 'w-1.5 bg-slate-400/60'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-900 to-slate-800 text-xs text-slate-400">
             {property.propertyType} · {property.city}
