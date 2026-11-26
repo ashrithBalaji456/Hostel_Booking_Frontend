@@ -13,6 +13,7 @@ import type {
   ChatMessageItem,
   CouponPreviewResponse,
   CouponResponse,
+  EligibleTicketProperty,
   FavoriteResponse,
   HostelTicket,
   InterviewModeResult,
@@ -323,6 +324,8 @@ export const chatApi = {
 };
 
 export const hostelTicketApi = {
+  getEligibleProperties: () =>
+    apiRequest<EligibleTicketProperty[]>('/api/v1/hostel-tickets/eligible-properties'),
   create: (body: { propertyId: string; category: string; subject: string; description: string; anonymous: boolean }) =>
     apiRequest<HostelTicket>('/api/v1/hostel-tickets', { method: 'POST', body: JSON.stringify(body) }),
   listMine: () => apiRequest<HostelTicket[]>('/api/v1/hostel-tickets/my'),

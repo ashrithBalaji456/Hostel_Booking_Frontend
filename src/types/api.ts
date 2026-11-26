@@ -453,6 +453,14 @@ export interface TicketStats {
   resolvedOrClosed: number;
 }
 
+export interface EligibleTicketProperty {
+  propertyId: string;
+  propertyName: string;
+  city: string;
+  roomNumber: string;
+  bedNumber: string;
+}
+
 export interface ChatConversation {
   id: string;
   propertyId: string;

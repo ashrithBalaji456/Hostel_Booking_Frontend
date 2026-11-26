@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Wrench } from 'lucide-react';
-import { chatApi, hostelTicketApi, propertyApi } from '../../api/endpoints';
+import { chatApi, hostelTicketApi } from '../../api/endpoints';
 import { WhatsAppChatPanel } from '../../components/chat/WhatsAppChatPanel';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { useAuth } from '../../context/AuthContext';
@@ -47,14 +47,21 @@ export function CustomerHostelTicketsPage() {
   const [description, setDescription] = useState('');
   const [anonymous, setAnonymous] = useState(false);
 
-  const propsQuery = useQuery({
-    queryKey: ['customer-ticket-properties'],
-    queryFn: () => propertyApi.search({ size: 50, verifiedOnly: true }),
+  const eligiblePropsQuery = useQuery({
+    queryKey: ['customer-eligible-ticket-properties'],
+    queryFn: hostelTicketApi.getEligibleProperties,
   });
+  const eligibleProps = eligiblePropsQuery.data ?? [];
   const myTicketsQuery = useQuery({
     queryKey: ['my-hostel-tickets'],
     queryFn: hostelTicketApi.listMine,
   });
+
+  useEffect(() => {
+    if (!propertyId && eligibleProps.length === 1) {
+      setPropertyId(eligibleProps[0].propertyId);
+    }
+  }, [eligibleProps, propertyId]);
 
   const createMutation = useMutation({
     mutationFn: () =>
@@ -82,9 +89,14 @@ export function CustomerHostelTicketsPage() {
           Raise Hostel / Hotel Issue Ticket to Owner
         </h1>
         <p className="mt-1 text-xs text-slate-400">
-          Report room maintenance, Wi-Fi, water, food, or housekeeping issues directly to the property owner. You can also submit anonymously.
+          Only active residents currently staying at a hostel/PG can raise a hostel issue ticket. Once you check out, ticket creation for that stay is closed.
         </p>
 
+        {!eligiblePropsQuery.isLoading && eligibleProps.length === 0 ? (
+          <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-200">
+            You do not have an active stay right now. Only confirmed residents currently staying in a hostel/PG can raise a hostel issue ticket to the owner.
+          </div>
+        ) : (
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -99,10 +111,10 @@ export function CustomerHostelTicketsPage() {
               onChange={(e) => setPropertyId(e.target.value)}
               className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
             >
-              <option value="">Select Hostel / Hotel…</option>
-              {propsQuery.data?.content.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.city})
+              <option value="">Select Your Active Hostel / Hotel…</option>
+              {eligibleProps.map((p) => (
+                <option key={p.propertyId} value={p.propertyId}>
+                  {p.propertyName} ({p.city}) — Room {p.roomNumber} ({p.bedNumber})
                 </option>
               ))}
             </select>
@@ -157,6 +169,7 @@ export function CustomerHostelTicketsPage() {
             {createMutation.isPending ? 'Submitting…' : 'Submit Hostel Ticket'}
           </button>
         </form>
+        )}
       </div>
 
       <div className="space-y-3">
