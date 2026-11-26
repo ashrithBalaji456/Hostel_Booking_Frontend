@@ -53,3 +53,26 @@
 .spatial-glow {
   box-shadow: 0 0 40px -10px rgba(34, 211, 238, 0.22), 0 20px 40px -15px rgba(0, 0, 0, 0.6);
 }
+
+@keyframes geniePop {
+  0% {
+    opacity: 0;
+    transform: translateY(22px) scale(0.18);
+    filter: blur(5px);
+  }
+  65% {
+    opacity: 1;
+    transform: translateY(-4px) scale(1.03);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.animate-genie-pop {
+  transform-origin: bottom center;
+  animation: geniePop 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}

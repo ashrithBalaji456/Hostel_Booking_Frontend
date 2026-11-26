@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { BedDouble, Check, RefreshCw } from 'lucide-react';
+import { BedDouble, Briefcase, Check, GraduationCap, RefreshCw, Sparkles, User as UserIcon, X } from 'lucide-react';
 import { SelectDropdown } from '../ui/SelectDropdown';
-import type { AvailableBedInfo, PropertyAvailabilityResponse, RoomResponse } from '../../types/api';
+import type { AvailableBedInfo, OccupiedBedInfo, PropertyAvailabilityResponse, RoomResponse } from '../../types/api';
 import { formatINR } from '../../utils/format';
 
 interface InteractiveBedSelectorProps {
@@ -28,12 +28,15 @@ export function InteractiveBedSelector({
   const [selectedFloor, setSelectedFloor] = useState<string>('ALL');
   const [selectedSharing, setSelectedSharing] = useState<string>('ALL');
   const [sortBy, setSortBy] = useState<'default' | 'avail_desc' | 'occ_asc' | 'occ_desc' | 'cap_asc' | 'cap_desc'>('default');
+  const [inspectOccupant, setInspectOccupant] = useState<OccupiedBedInfo | null>(null);
 
   const floors = Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
   const sharingTypes = Array.from(new Set(rooms.map((r) => r.roomType)));
 
   const availableMap = new Map<string, AvailableBedInfo>();
   availability?.availableBeds.forEach((b) => availableMap.set(b.bedId, b));
+  const occupiedMap = new Map<string, OccupiedBedInfo>();
+  availability?.occupiedBeds?.forEach((o) => occupiedMap.set(o.bedId, o));
 
   const getRoomFreeCount = (room: RoomResponse) =>
     room.beds.filter((b) => availableMap.has(b.id)).length;
@@ -208,6 +211,7 @@ export function InteractiveBedSelector({
               <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {room.beds.map((bed) => {
                   const availInfo = availableMap.get(bed.id);
+                  const occInfo = occupiedMap.get(bed.id);
                   const isAvailable = Boolean(availInfo);
                   const isSelected = activeBedIds.includes(bed.id);
 
@@ -215,17 +219,26 @@ export function InteractiveBedSelector({
                     <button
                       key={bed.id}
                       type="button"
-                      disabled={!isAvailable}
+                      disabled={!isAvailable && !occInfo}
                       aria-pressed={isSelected}
                       aria-label={`Bed ${bed.bedNumber} in Room ${room.roomNumber} - ${
-                        isSelected ? 'Selected' : isAvailable ? 'Available' : 'Unavailable'
+                        isSelected ? 'Selected' : isAvailable ? 'Available' : occInfo ? `Booked by ${occInfo.occupantName} (tap to view)` : 'Unavailable'
                       }`}
-                      onClick={() => availInfo && onSelectBed(availInfo)}
+                      onClick={() => {
+                        if (availInfo) {
+                          setInspectOccupant(null);
+                          onSelectBed(availInfo);
+                        } else if (occInfo) {
+                          setInspectOccupant(occInfo);
+                        }
+                      }}
                       className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-left text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
                         isSelected
                           ? 'border-cyan-400 bg-cyan-500/25 text-white'
                           : isAvailable
                           ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/20'
+                          : occInfo
+                          ? 'cursor-pointer border-amber-500/40 bg-amber-500/10 text-amber-200 hover:border-cyan-400/50 hover:bg-amber-500/20'
                           : 'cursor-not-allowed border-slate-800 bg-slate-950/60 text-slate-500 line-through'
                       }`}
                     >
@@ -237,7 +250,7 @@ export function InteractiveBedSelector({
                         <Check className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
                       ) : (
                         <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">
-                          {isAvailable ? 'Free' : bed.status === 'MAINTENANCE' ? 'Maint' : 'Held'}
+                          {isAvailable ? 'Free' : occInfo ? 'Booked · View' : bed.status === 'MAINTENANCE' ? 'Maint' : 'Held'}
                         </span>
                       )}
                     </button>
@@ -282,6 +295,82 @@ export function InteractiveBedSelector({
               );
             }),
           )}
+        </div>
+      )}
+
+      {/* Genie-from-lamp Occupant Profile Pop-up */}
+      {inspectOccupant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
+          <div className="animate-genie-pop relative w-full max-w-sm overflow-hidden rounded-3xl border border-cyan-400/50 bg-gradient-to-b from-slate-900 via-slate-900 to-indigo-950/90 p-6 shadow-[0_0_50px_rgba(34,211,238,0.28)]">
+            <button
+              type="button"
+              onClick={() => setInspectOccupant(null)}
+              aria-label="Close occupant profile"
+              className="absolute right-4 top-4 rounded-lg border border-slate-700 p-1 text-slate-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="relative">
+                {inspectOccupant.occupantAvatar ? (
+                  <img
+                    src={inspectOccupant.occupantAvatar}
+                    alt={inspectOccupant.occupantName}
+                    className="h-20 w-20 rounded-full border-2 border-cyan-400 object-cover shadow-lg shadow-cyan-500/30"
+                  />
+                ) : (
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-cyan-400/70 bg-cyan-500/15 text-cyan-200 shadow-lg shadow-cyan-500/20">
+                    <UserIcon className="h-9 w-9" />
+                  </div>
+                )}
+                <span className="absolute -bottom-1 -right-1 rounded-full bg-cyan-500 p-1 text-slate-950">
+                  <Sparkles className="h-3.5 w-3.5" />
+                </span>
+              </div>
+
+              <h3 className="mt-3 text-lg font-bold text-white">{inspectOccupant.occupantName}</h3>
+              <p className="text-xs text-cyan-300">
+                Room {inspectOccupant.roomNumber} · Bed {inspectOccupant.bedNumber} ({inspectOccupant.bookingStatus})
+              </p>
+
+              <div className="mt-4 w-full space-y-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-3.5 text-left text-xs">
+                <div className="flex items-center gap-2 text-slate-200">
+                  {inspectOccupant.occupationType === 'JOB_HOLDER' ? (
+                    <Briefcase className="h-4 w-4 text-cyan-400" />
+                  ) : (
+                    <GraduationCap className="h-4 w-4 text-cyan-400" />
+                  )}
+                  <span className="font-semibold">
+                    {inspectOccupant.occupationType === 'JOB_HOLDER'
+                      ? 'Working Professional'
+                      : inspectOccupant.occupationType === 'STUDENT'
+                      ? 'Student'
+                      : 'Resident'}
+                  </span>
+                </div>
+                {inspectOccupant.organizationName && (
+                  <p className="text-slate-300">
+                    <span className="text-slate-400">
+                      {inspectOccupant.occupationType === 'JOB_HOLDER' ? 'Company: ' : 'College / Org: '}
+                    </span>
+                    <span className="font-medium text-white">{inspectOccupant.organizationName}</span>
+                  </p>
+                )}
+                {inspectOccupant.courseOrRole && (
+                  <p className="text-slate-300">
+                    <span className="text-slate-400">
+                      {inspectOccupant.occupationType === 'JOB_HOLDER' ? 'Role: ' : 'Course: '}
+                    </span>
+                    <span className="font-medium text-white">{inspectOccupant.courseOrRole}</span>
+                  </p>
+                )}
+                {!inspectOccupant.organizationName && !inspectOccupant.courseOrRole && (
+                  <p className="text-slate-400">Resident has not added college/company details yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

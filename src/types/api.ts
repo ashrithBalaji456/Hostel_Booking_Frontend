@@ -65,6 +65,9 @@ export interface UserProfileResponse {
   role: UserRole;
   gender?: Gender;
   profileImage?: string;
+  occupationType?: string;
+  organizationName?: string;
+  courseOrRole?: string;
   emailVerified: boolean;
   accountStatus: AccountStatus;
   createdAt: string;
@@ -198,6 +201,19 @@ export interface AvailableBedInfo {
   monthlyRate?: number;
 }
 
+export interface OccupiedBedInfo {
+  bedId: string;
+  roomId: string;
+  roomNumber: string;
+  bedNumber: string;
+  bookingStatus: string;
+  occupantName: string;
+  occupantAvatar?: string;
+  occupationType?: string;
+  organizationName?: string;
+  courseOrRole?: string;
+}
+
 export interface PropertyAvailabilityResponse {
   propertyId: string;
   checkIn: string;
@@ -205,6 +221,7 @@ export interface PropertyAvailabilityResponse {
   totalBeds: number;
   availableBedsCount: number;
   availableBeds: AvailableBedInfo[];
+  occupiedBeds?: OccupiedBedInfo[];
 }
 
 export interface BookingResponse {

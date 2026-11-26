@@ -20,6 +20,9 @@ const registerSchema = z.object({
   phoneNumber: z.string().regex(/^(\+91)?[6-9]\d{9}$/, 'Enter a valid Indian mobile number'),
   role: z.enum(['CUSTOMER', 'PROPERTY_OWNER']),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
+  occupationType: z.enum(['STUDENT', 'JOB_HOLDER', 'OTHER']).optional(),
+  organizationName: z.string().max(200).optional(),
+  courseOrRole: z.string().max(150).optional(),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;
@@ -33,11 +36,14 @@ export function RegisterPage() {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterForm>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { role: 'CUSTOMER', gender: 'MALE' },
+    defaultValues: { role: 'CUSTOMER', gender: 'MALE', occupationType: 'STUDENT' },
   });
+  const selectedRole = watch('role');
+  const selectedOcc = watch('occupationType');
 
   const onSubmit = async (values: RegisterForm) => {
     setServerError(null);
@@ -114,6 +120,43 @@ export function RegisterPage() {
               </select>
             </div>
           </div>
+
+          {selectedRole === 'CUSTOMER' && (
+            <div className="space-y-3 rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="occupationType" className="block text-xs font-medium text-slate-300">Occupation</label>
+                  <select id="occupationType" {...register('occupationType')} className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white">
+                    <option value="STUDENT">Student</option>
+                    <option value="JOB_HOLDER">Job Holder / Working</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="organizationName" className="block text-xs font-medium text-slate-300">
+                    {selectedOcc === 'JOB_HOLDER' ? 'Company Name' : 'College / University'}
+                  </label>
+                  <input
+                    id="organizationName"
+                    {...register('organizationName')}
+                    placeholder={selectedOcc === 'JOB_HOLDER' ? 'e.g. TCS, Infosys' : 'e.g. NIT Warangal'}
+                    className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="courseOrRole" className="block text-xs font-medium text-slate-300">
+                  {selectedOcc === 'JOB_HOLDER' ? 'Job Role (Optional)' : 'Course / Branch (Optional)'}
+                </label>
+                <input
+                  id="courseOrRole"
+                  {...register('courseOrRole')}
+                  placeholder={selectedOcc === 'JOB_HOLDER' ? 'e.g. Software Engineer' : 'e.g. B.Tech CSE'}
+                  className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-white"
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"
