@@ -805,6 +805,18 @@ export function OwnerPropertiesPage() {
               >
                 Add URL
               </button>
+              {images.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImages((prev) => prev.map((img) => ({ ...img, imageType: newImageType })));
+                    pushToast(`Set all ${images.length} photo(s) to ${newImageType.replace('_', ' ')}`, 'info');
+                  }}
+                  className="rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25"
+                >
+                  Set to All
+                </button>
+              )}
             </div>
 
             {images.length > 0 && (
