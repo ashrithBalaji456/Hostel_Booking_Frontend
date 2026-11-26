@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { BedDouble, MapPin } from 'lucide-react';
+import { BedDouble, MapPin, Navigation } from 'lucide-react';
 import { formatINR } from '../../utils/format';
 
 export interface PropertyMapMarker {
@@ -174,6 +174,14 @@ export default function PropertyMap({
                 <BedDouble className="h-3.5 w-3.5" /> {selected.availableBedCount} beds
               </span>
             )}
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${selected.latitude},${selected.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25"
+            >
+              <Navigation className="h-3.5 w-3.5" /> Directions
+            </a>
             <Link
               to={`/properties/${selected.id}`}
               className="rounded-xl bg-cyan-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-cyan-500"

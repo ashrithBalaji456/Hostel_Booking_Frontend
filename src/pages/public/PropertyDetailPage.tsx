@@ -14,6 +14,7 @@ import {
   Images,
   Lock,
   MapPin,
+  Navigation,
   ShieldCheck,
   Shirt,
   Sparkles,
@@ -170,6 +171,16 @@ export function PropertyDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {p.latitude != null && p.longitude != null && (
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25"
+              >
+                <Navigation className="h-4 w-4" /> Directions
+              </a>
+            )}
             {p.images.length > 0 && (
               <button
                 type="button"
@@ -466,7 +477,17 @@ export function PropertyDetailPage() {
       {/* Location Map */}
       {p.latitude != null && p.longitude != null && (
         <section className="glass-panel mt-6 rounded-2xl p-6">
-          <h2 className="mb-3 text-lg font-semibold text-white">Location</h2>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold text-white">Location</h2>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25"
+            >
+              <Navigation className="h-3.5 w-3.5" /> Open Directions in Google Maps
+            </a>
+          </div>
           <Suspense fallback={<div className="h-64 animate-pulse rounded-2xl bg-slate-900" />}>
             <PropertyMap
               heightClass="h-64"
