@@ -19,7 +19,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
 
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId);
   const [draft, setDraft] = useState('');
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const convQuery = useQuery({
     queryKey: ['chat-conversations', effectiveMode],
@@ -49,7 +49,10 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
   const messages = messagesQuery.data ?? [];
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesContainerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages.length, selectedId]);
 
   const sendMutation = useMutation({
@@ -180,7 +183,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
               <span className="text-[11px] text-emerald-300">Private &amp; Isolated Chat</span>
             </div>
 
-            <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
+            <div ref={messagesContainerRef} className="flex-1 space-y-2.5 overflow-y-auto p-4">
               {messages.length === 0 && (
                 <div className="mx-auto my-8 max-w-xs rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-center text-xs text-slate-400">
                   Messages here are private between you and the {effectiveMode === 'owner' ? 'guest' : 'hostel owner'}.
@@ -222,7 +225,6 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                   </div>
                 );
               })}
-              <div ref={bottomRef} />
             </div>
 
             <form onSubmit={handleSend} className="flex items-center gap-2 border-t border-slate-800 bg-slate-900/90 p-3">
