@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { BedDouble, Building2, CalendarCheck, DoorOpen, Plus, Wallet } from 'lucide-react';
-import { ownerApi } from '../../api/endpoints';
+import { ownerApi, hostelTicketApi } from '../../api/endpoints';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { OwnerAnalyticsCharts } from '../../components/owner/OwnerAnalyticsCharts';
+import { TicketStatsChartCard } from '../../components/charts/TicketStatsChartCard';
 import { formatINR, formatIST } from '../../utils/format';
 
 export function OwnerDashboardPage() {
@@ -13,6 +14,10 @@ export function OwnerDashboardPage() {
   const bookingsQuery = useQuery({
     queryKey: ['owner-bookings-inventory'],
     queryFn: () => ownerApi.getBookings({ page: 0, size: 100 }),
+  });
+  const ticketStatsQuery = useQuery({
+    queryKey: ['owner-hostel-ticket-stats'],
+    queryFn: hostelTicketApi.getOwnerStats,
   });
 
   const properties = propertiesQuery.data ?? [];
@@ -300,6 +305,12 @@ export function OwnerDashboardPage() {
           <p className="mt-3 text-base text-slate-400">No upcoming check-ins in the next 7 days.</p>
         )}
       </div>
+
+      <TicketStatsChartCard
+        title="Resident Ticket Analytics"
+        subtitle="Hostel/hotel tickets raised by residents vs. closed/rectified"
+        stats={ticketStatsQuery.data}
+      />
     </div>
   );
 }

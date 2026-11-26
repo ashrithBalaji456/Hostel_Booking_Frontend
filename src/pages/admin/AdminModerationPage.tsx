@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { adminApi, customerOpsApi } from '../../api/endpoints';
+import { adminApi, customerOpsApi, hostelTicketApi } from '../../api/endpoints';
+import { TicketStatsChartCard } from '../../components/charts/TicketStatsChartCard';
 import { useToast } from '../../context/ToastContext';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { formatIST } from '../../utils/format';
@@ -28,11 +29,20 @@ export function AdminModerationPage() {
     queryFn: () => customerOpsApi.getTicketMessages(activeTicketId!),
     enabled: Boolean(activeTicketId),
   });
+  const ticketStatsQuery = useQuery({
+    queryKey: ['admin-ticket-stats'],
+    queryFn: hostelTicketApi.getAdminStats,
+  });
   const disputesQuery = useQuery({ queryKey: ['admin-disputes'], queryFn: () => adminApi.listDisputes({ page: 0, size: 15 }) });
   const safetyQuery = useQuery({ queryKey: ['admin-safety'], queryFn: () => adminApi.listSafetyComplaints({ page: 0, size: 15 }) });
 
   return (
     <div className="space-y-6">
+      <TicketStatsChartCard
+        title="Platform Ticket Analytics"
+        subtitle="Combined support & hostel tickets raised vs. closed/rectified across the platform"
+        stats={ticketStatsQuery.data}
+      />
       <div className="glass-panel rounded-2xl p-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart3, Building2, CalendarCheck, CalendarX, FileCheck2, LifeBuoy, Sparkles, Wallet } from 'lucide-react';
+import { BarChart3, Building2, CalendarCheck, CalendarX, FileCheck2, LifeBuoy, MessageCircle, Sparkles, Wallet, Wrench } from 'lucide-react';
 import { ownerApi } from '../../api/endpoints';
 import { PieChart3DCard } from '../../components/owner/OwnerAnalyticsCharts';
 
@@ -9,6 +9,8 @@ const LINKS = [
   { to: '/owner/properties', label: 'Properties, Rooms & Beds', icon: Building2 },
   { to: '/owner/availability', label: 'Availability & Blocks', icon: CalendarX },
   { to: '/owner/bookings', label: 'Bookings, Check-In & Walk-In', icon: CalendarCheck },
+  { to: '/owner/chats', label: 'Customer Chats', icon: MessageCircle },
+  { to: '/owner/hostel-tickets', label: 'Resident Tickets', icon: Wrench },
   { to: '/owner/payouts', label: 'Payouts & Earnings', icon: Wallet },
   { to: '/owner/verification', label: 'KYC & Verification', icon: FileCheck2 },
   { to: '/owner/support', label: 'Support & Tickets', icon: LifeBuoy },

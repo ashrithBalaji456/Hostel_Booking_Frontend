@@ -14,6 +14,7 @@ import {
   Images,
   Lock,
   MapPin,
+  MessageCircle,
   Navigation,
   ShieldCheck,
   Shirt,
@@ -191,6 +192,13 @@ export function PropertyDetailPage() {
                 <Navigation className="h-4 w-4" /> Directions
               </a>
             )}
+            <button
+              type="button"
+              onClick={() => navigate(isAuthenticated ? `/account/chat?propertyId=${p.id}` : '/login')}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-600/25 px-3.5 py-2 text-xs font-semibold text-emerald-100 hover:bg-emerald-600/40"
+            >
+              <MessageCircle className="h-4 w-4" /> Chat with Owner
+            </button>
             {p.images.length > 0 && (
               <button
                 type="button"

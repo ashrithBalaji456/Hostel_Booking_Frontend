@@ -446,6 +446,58 @@ export interface CouponPreviewResponse {
   maxDiscountAmount?: number;
 }
 
+export interface TicketStats {
+  total: number;
+  open: number;
+  inProgress: number;
+  resolvedOrClosed: number;
+}
+
+export interface ChatConversation {
+  id: string;
+  propertyId: string;
+  propertyName: string;
+  customerId: string;
+  customerName: string;
+  ownerId: string;
+  ownerName: string;
+  roomNumber?: string;
+  bedNumber?: string;
+  lastMessage?: string;
+  unreadCount: number;
+  lastMessageAt: string;
+}
+
+export interface ChatMessageItem {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderRole: string;
+  message: string;
+  readByRecipient: boolean;
+  createdAt: string;
+}
+
+export interface HostelTicket {
+  id: string;
+  ticketReference: string;
+  propertyId: string;
+  propertyName: string;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  roomNumber?: string;
+  bedNumber?: string;
+  category: string;
+  subject: string;
+  description: string;
+  anonymous: boolean;
+  status: string;
+  ownerResolution?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OwnerDashboardResponse {
   totalProperties: number;
   pendingBookings: number;

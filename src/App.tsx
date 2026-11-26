@@ -19,12 +19,14 @@ import { BookingDetailPage } from './pages/account/BookingDetailPage';
 import { FavoritesPage } from './pages/account/FavoritesPage';
 import { NotificationsPage } from './pages/account/NotificationsPage';
 import { DisputesPage, SafetyPage, SupportPage } from './pages/account/SupportDisputesSafetyPages';
+import { CustomerChatPage, CustomerHostelTicketsPage } from './pages/account/CustomerChatAndTicketsPages';
 import { OwnerLayout } from './pages/owner/OwnerLayout';
 import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { OwnerPropertiesPage } from './pages/owner/OwnerPropertiesPage';
 import { OwnerAvailabilityPage } from './pages/owner/OwnerAvailabilityPage';
 import { OwnerBookingsPage } from './pages/owner/OwnerBookingsPage';
 import { OwnerPayoutsPage, OwnerVerificationPage } from './pages/owner/OwnerFinanceAndVerificationPage';
+import { OwnerChatsPage, OwnerHostelTicketsPage } from './pages/owner/OwnerChatAndTicketsPages';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { AdminDashboardPage } from './pages/admin/AdminDashboardPage';
 import { AdminUsersPropertiesPage, AdminVerificationsPage } from './pages/admin/AdminUsersPropertiesPage';
@@ -67,6 +69,8 @@ export function App() {
               </Route>
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="support" element={<SupportPage />} />
+              <Route path="chat" element={<CustomerChatPage />} />
+              <Route path="hostel-tickets" element={<CustomerHostelTicketsPage />} />
               <Route path="disputes" element={<DisputesPage />} />
               <Route path="safety" element={<SafetyPage />} />
             </Route>
@@ -82,6 +86,8 @@ export function App() {
               <Route path="payouts" element={<OwnerPayoutsPage />} />
               <Route path="verification" element={<OwnerVerificationPage />} />
               <Route path="support" element={<SupportPage />} />
+              <Route path="chats" element={<OwnerChatsPage />} />
+              <Route path="hostel-tickets" element={<OwnerHostelTicketsPage />} />
             </Route>
           </Route>
 

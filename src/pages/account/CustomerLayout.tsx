@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
-import { Bell, Calendar, Heart, LifeBuoy, Scale, ShieldAlert, User } from 'lucide-react';
+import { Bell, Calendar, Heart, LifeBuoy, MessageCircle, Scale, ShieldAlert, User, Wrench } from 'lucide-react';
 
 const LINKS = [
   { to: '/account/bookings', label: 'My Bookings', icon: Calendar },
+  { to: '/account/chat', label: 'Chat with Owners', icon: MessageCircle },
+  { to: '/account/hostel-tickets', label: 'Hostel Issue Tickets', icon: Wrench },
   { to: '/account/profile', label: 'Profile', icon: User },
   { to: '/account/favorites', label: 'Favorites', icon: Heart },
   { to: '/account/notifications', label: 'Notifications', icon: Bell },

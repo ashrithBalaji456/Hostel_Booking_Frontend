@@ -9,9 +9,12 @@ import type {
   BookingResponse,
   BookingStatusHistory,
   BookingStatusResponse,
+  ChatConversation,
+  ChatMessageItem,
   CouponPreviewResponse,
   CouponResponse,
   FavoriteResponse,
+  HostelTicket,
   InterviewModeResult,
   NotificationResponse,
   OwnerAnalyticsResponse,
@@ -31,6 +34,7 @@ import type {
   SecurityDeposit,
   SupportMessage,
   SupportTicket,
+  TicketStats,
   UserProfileResponse,
 } from '../types/api';
 
@@ -301,4 +305,30 @@ export const publicCouponApi = {
     apiRequest<CouponResponse[]>(`/api/v1/coupons/active${buildQuery({ propertyId })}`),
   preview: (params: { code: string; propertyId: string; stayType: string; baseAmount: number }) =>
     apiRequest<CouponPreviewResponse>(`/api/v1/coupons/preview${buildQuery(params)}`),
+};
+
+export const chatApi = {
+  startConversation: (propertyId: string) =>
+    apiRequest<ChatConversation>(`/api/v1/chat/conversations${buildQuery({ propertyId })}`, { method: 'POST' }),
+  listConversations: () => apiRequest<ChatConversation[]>('/api/v1/chat/conversations'),
+  getMessages: (conversationId: string) =>
+    apiRequest<ChatMessageItem[]>(`/api/v1/chat/conversations/${conversationId}/messages`),
+  sendMessage: (conversationId: string, message: string) =>
+    apiRequest<ChatMessageItem>(`/api/v1/chat/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+};
+
+export const hostelTicketApi = {
+  create: (body: { propertyId: string; category: string; subject: string; description: string; anonymous: boolean }) =>
+    apiRequest<HostelTicket>('/api/v1/hostel-tickets', { method: 'POST', body: JSON.stringify(body) }),
+  listMine: () => apiRequest<HostelTicket[]>('/api/v1/hostel-tickets/my'),
+  listOwner: () => apiRequest<HostelTicket[]>('/api/v1/owner/hostel-tickets'),
+  updateOwnerStatus: (ticketId: string, status: string, resolution?: string) =>
+    apiRequest<HostelTicket>(`/api/v1/owner/hostel-tickets/${ticketId}/status${buildQuery({ status, resolution })}`, {
+      method: 'POST',
+    }),
+  getOwnerStats: () => apiRequest<TicketStats>('/api/v1/owner/hostel-tickets/stats'),
+  getAdminStats: () => apiRequest<TicketStats>('/api/v1/admin/ticket-stats'),
 };
