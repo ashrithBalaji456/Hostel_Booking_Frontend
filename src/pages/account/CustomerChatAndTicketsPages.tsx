@@ -1,17 +1,23 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Shield, Wrench } from 'lucide-react';
 import { chatApi, hostelTicketApi, propertyApi } from '../../api/endpoints';
 import { WhatsAppChatPanel } from '../../components/chat/WhatsAppChatPanel';
 import { StatusBadge } from '../../components/ui/StatusBadge';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { formatIST } from '../../utils/format';
 
 export function CustomerChatPage() {
+  const { user } = useAuth();
   const [params] = useSearchParams();
   const propertyId = params.get('propertyId');
   const [initialConvId, setInitialConvId] = useState<string | null>(null);
+
+  if (user?.role === 'PROPERTY_OWNER') {
+    return <Navigate to="/owner/chats" replace />;
+  }
 
   useEffect(() => {
     if (!propertyId) return;
@@ -26,7 +32,12 @@ export function CustomerChatPage() {
 }
 
 export function CustomerHostelTicketsPage() {
+  const { user } = useAuth();
   const [params] = useSearchParams();
+
+  if (user?.role === 'PROPERTY_OWNER') {
+    return <Navigate to="/owner/hostel-tickets" replace />;
+  }
   const { pushToast } = useToast();
   const qc = useQueryClient();
 

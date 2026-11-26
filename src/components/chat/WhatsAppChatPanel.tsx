@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CheckCheck, MessageCircle, Send } from 'lucide-react';
+import { Check, CheckCheck, MessageCircle, Send, Trash2 } from 'lucide-react';
 import { chatApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -15,13 +15,14 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
   const { user } = useAuth();
   const { pushToast } = useToast();
   const qc = useQueryClient();
+  const effectiveMode = user?.role === 'PROPERTY_OWNER' ? 'owner' : mode;
 
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId);
   const [draft, setDraft] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const convQuery = useQuery({
-    queryKey: ['chat-conversations', mode],
+    queryKey: ['chat-conversations', effectiveMode],
     queryFn: chatApi.listConversations,
     refetchInterval: 5000,
   });
@@ -56,7 +57,16 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
     onSuccess: () => {
       setDraft('');
       void qc.invalidateQueries({ queryKey: ['chat-messages', selectedId] });
-      void qc.invalidateQueries({ queryKey: ['chat-conversations', mode] });
+      void qc.invalidateQueries({ queryKey: ['chat-conversations', effectiveMode] });
+    },
+    onError: (e: Error) => pushToast(e.message, 'error'),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (messageId: string) => chatApi.deleteMessage(messageId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['chat-messages', selectedId] });
+      void qc.invalidateQueries({ queryKey: ['chat-conversations', effectiveMode] });
     },
     onError: (e: Error) => pushToast(e.message, 'error'),
   });
@@ -74,7 +84,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3.5">
           <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
             <MessageCircle className="h-4 w-4 text-emerald-400" />
-            {mode === 'owner' ? 'Customer Chats' : 'Hostel Inquiries & Chats'}
+            {effectiveMode === 'owner' ? 'Customer Chats' : 'Hostel Inquiries & Chats'}
           </h2>
           <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
             {conversations.length}
@@ -84,14 +94,14 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
         <div className="flex-1 divide-y divide-slate-800/70 overflow-y-auto">
           {conversations.length === 0 ? (
             <div className="p-6 text-center text-xs text-slate-400">
-              {mode === 'owner'
+              {effectiveMode === 'owner'
                 ? 'No customer messages yet. When a student messages your hostel, it appears here.'
                 : 'No chats yet. Click "Chat with Owner" on any hostel page to start.'}
             </div>
           ) : (
             conversations.map((c) => {
               const isSelected = c.id === selectedId;
-              const title = mode === 'owner' ? c.customerName : c.propertyName;
+              const title = effectiveMode === 'owner' ? c.customerName : c.propertyName;
               const roomTag =
                 c.roomNumber != null
                   ? `Room ${c.roomNumber}${c.bedNumber ? ` (${c.bedNumber})` : ''}`
@@ -109,7 +119,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="truncate text-sm font-semibold text-white">{title}</span>
-                      {mode === 'owner' && (
+                      {effectiveMode === 'owner' && (
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             c.roomNumber
@@ -122,7 +132,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                       )}
                     </div>
                     <p className="truncate text-[11px] text-cyan-300/90">
-                      {mode === 'owner' ? c.propertyName : `Owner: ${c.ownerName}`}
+                      {effectiveMode === 'owner' ? c.propertyName : `Owner: ${c.ownerName}`}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-400">
                       {c.lastMessage ?? 'Start the conversation…'}
@@ -148,7 +158,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-sm font-semibold text-white">
-                    {mode === 'owner' ? activeConv.customerName : activeConv.propertyName}
+                    {effectiveMode === 'owner' ? activeConv.customerName : activeConv.propertyName}
                   </h3>
                   {activeConv.roomNumber ? (
                     <span className="rounded-full border border-cyan-400/40 bg-cyan-500/15 px-2.5 py-0.5 text-[11px] font-medium text-cyan-200">
@@ -162,7 +172,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                   )}
                 </div>
                 <p className="text-xs text-slate-400">
-                  {mode === 'owner'
+                  {effectiveMode === 'owner'
                     ? `Property: ${activeConv.propertyName}`
                     : `Owner: ${activeConv.ownerName}`}
                 </p>
@@ -173,7 +183,7 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
             <div className="flex-1 space-y-2.5 overflow-y-auto p-4">
               {messages.length === 0 && (
                 <div className="mx-auto my-8 max-w-xs rounded-xl border border-slate-800 bg-slate-900/80 p-3 text-center text-xs text-slate-400">
-                  Messages here are private between you and the {mode === 'owner' ? 'guest' : 'hostel owner'}.
+                  Messages here are private between you and the {effectiveMode === 'owner' ? 'guest' : 'hostel owner'}.
                 </div>
               )}
               {messages.map((m) => {
@@ -181,14 +191,14 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                 return (
                   <div key={m.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow ${
+                      className={`group max-w-[78%] rounded-2xl px-3.5 py-2 text-sm shadow ${
                         isMine
                           ? 'rounded-br-sm bg-emerald-700/90 text-white'
                           : 'rounded-bl-sm border border-slate-700 bg-slate-800/95 text-slate-100'
                       }`}
                     >
                       <p className="whitespace-pre-wrap break-words">{m.message}</p>
-                      <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-slate-200/75">
+                      <div className="mt-1 flex items-center justify-end gap-1.5 text-[10px] text-slate-200/75">
                         <span>{formatIST(m.createdAt)}</span>
                         {isMine &&
                           (m.readByRecipient ? (
@@ -196,6 +206,17 @@ export function WhatsAppChatPanel({ mode, initialConversationId = null }: WhatsA
                           ) : (
                             <Check className="h-3 w-3" />
                           ))}
+                        {isMine && (
+                          <button
+                            type="button"
+                            onClick={() => deleteMutation.mutate(m.id)}
+                            title="Delete message"
+                            aria-label="Delete message"
+                            className="ml-1 text-rose-200/80 opacity-80 transition hover:text-rose-200 hover:opacity-100"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

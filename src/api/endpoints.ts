@@ -318,6 +318,8 @@ export const chatApi = {
       method: 'POST',
       body: JSON.stringify({ message }),
     }),
+  deleteMessage: (messageId: string) =>
+    apiRequest<void>(`/api/v1/chat/messages/${messageId}`, { method: 'DELETE' }),
 };
 
 export const hostelTicketApi = {
