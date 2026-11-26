@@ -1,12 +1,13 @@
 import { lazy, Suspense, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Filter, List, Map as MapIcon, Search } from 'lucide-react';
+import { Crosshair, Filter, List, Map as MapIcon, Search } from 'lucide-react';
 import { propertyApi } from '../../api/endpoints';
 import { PropertyCard } from '../../components/property/PropertyCard';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { ApiClientError } from '../../api/client';
+import { resolveCurrentLocation } from '../../utils/geolocation';
 
 const PropertyMap = lazy(() => import('../../components/map/PropertyMap'));
 
@@ -15,11 +16,20 @@ const AMENITIES = ['WIFI', 'AC', 'FOOD', 'WASHING_MACHINE', 'PARKING', 'LOCKER',
 export function SearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+
+  const rawLat = searchParams.get('latitude');
+  const rawLng = searchParams.get('longitude');
+  const hasCoords = Boolean(rawLat && rawLng);
 
   const paramsObj = {
     city: searchParams.get('city') ?? '',
     locality: searchParams.get('locality') ?? '',
     pincode: searchParams.get('pincode') ?? '',
+    latitude: rawLat ? Number(rawLat) : undefined,
+    longitude: rawLng ? Number(rawLng) : undefined,
+    radiusKm: searchParams.get('radiusKm') ? Number(searchParams.get('radiusKm')) : hasCoords ? 15 : undefined,
     stayType: searchParams.get('stayType') ?? '',
     propertyType: searchParams.get('propertyType') ?? '',
     genderPolicy: searchParams.get('genderPolicy') ?? '',
@@ -29,7 +39,7 @@ export function SearchPage() {
     checkOut: searchParams.get('checkOut') ?? '',
     availableOnly: searchParams.get('availableOnly') === 'true',
     verifiedOnly: searchParams.get('verifiedOnly') !== 'false',
-    sortBy: searchParams.get('sortBy') ?? 'price_asc',
+    sortBy: searchParams.get('sortBy') ?? (hasCoords ? 'distance' : 'price_asc'),
     page: Number(searchParams.get('page') ?? 0),
     size: 12,
   };
@@ -130,8 +140,79 @@ export function SearchPage() {
 
           <div className="mt-4 space-y-4 text-sm">
             <div>
-              <label htmlFor="f-city" className="block text-xs text-slate-400">City</label>
-              <input id="f-city" value={paramsObj.city} onChange={(e) => updateParam('city', e.target.value)} placeholder="Bengaluru" className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white" />
+              <div className="flex items-center justify-between gap-2">
+                <label htmlFor="f-city" className="block text-xs text-slate-400">City</label>
+                <button
+                  type="button"
+                  disabled={geoLoading}
+                  onClick={async () => {
+                    setGeoError(null);
+                    setGeoLoading(true);
+                    try {
+                      const loc = await resolveCurrentLocation(false);
+                      const next = new URLSearchParams(searchParams);
+                      next.delete('city');
+                      next.set('latitude', String(Number(loc.latitude.toFixed(5))));
+                      next.set('longitude', String(Number(loc.longitude.toFixed(5))));
+                      if (!next.get('radiusKm')) next.set('radiusKm', '15');
+                      next.set('sortBy', 'distance');
+                      next.set('page', '0');
+                      setSearchParams(next);
+                    } catch {
+                      setGeoError('Unable to detect location. Enter city instead.');
+                    } finally {
+                      setGeoLoading(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+                >
+                  <Crosshair className="h-3 w-3" />
+                  {geoLoading ? 'Locating…' : 'Use my location'}
+                </button>
+              </div>
+              <input
+                id="f-city"
+                value={paramsObj.city}
+                onChange={(e) => {
+                  const next = new URLSearchParams(searchParams);
+                  if (e.target.value) {
+                    next.set('city', e.target.value);
+                    next.delete('latitude');
+                    next.delete('longitude');
+                    next.delete('radiusKm');
+                  } else {
+                    next.delete('city');
+                  }
+                  next.set('page', '0');
+                  setSearchParams(next);
+                }}
+                placeholder={
+                  hasCoords
+                    ? `Near (${paramsObj.latitude?.toFixed(4)}, ${paramsObj.longitude?.toFixed(4)})`
+                    : 'Bengaluru'
+                }
+                className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+              />
+              {hasCoords && (
+                <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1.5 text-[11px] text-cyan-200">
+                  <span>GPS active ({paramsObj.radiusKm ?? 15} km)</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = new URLSearchParams(searchParams);
+                      next.delete('latitude');
+                      next.delete('longitude');
+                      next.delete('radiusKm');
+                      next.set('page', '0');
+                      setSearchParams(next);
+                    }}
+                    className="text-rose-300 hover:text-rose-200"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+              {geoError && <p className="mt-1 text-[11px] text-rose-300">{geoError}</p>}
             </div>
             <div>
               <label htmlFor="f-locality" className="block text-xs text-slate-400">Locality / Area</label>
