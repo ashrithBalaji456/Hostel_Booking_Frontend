@@ -146,7 +146,7 @@ export function PropertyDetailPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-10">
       <div className="glass-panel rounded-3xl p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

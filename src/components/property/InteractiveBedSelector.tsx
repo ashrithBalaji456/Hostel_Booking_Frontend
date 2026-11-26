@@ -133,7 +133,7 @@ export function InteractiveBedSelector({
                 )}
               </div>
 
-              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {room.beds.map((bed) => {
                   const availInfo = availableMap.get(bed.id);
                   const isAvailable = Boolean(availInfo);
@@ -149,7 +149,7 @@ export function InteractiveBedSelector({
                         isSelected ? 'Selected' : isAvailable ? 'Available' : 'Unavailable'
                       }`}
                       onClick={() => availInfo && onSelectBed(availInfo)}
-                      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+                      className={`flex items-center justify-between gap-2 rounded-xl border px-3.5 py-2.5 text-left text-xs font-medium transition focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
                         isSelected
                           ? 'border-cyan-400 bg-cyan-500/25 text-white'
                           : isAvailable
@@ -157,14 +157,14 @@ export function InteractiveBedSelector({
                           : 'cursor-not-allowed border-slate-800 bg-slate-950/60 text-slate-500 line-through'
                       }`}
                     >
-                      <span className="flex items-center gap-1.5">
-                        <BedDouble className="h-3.5 w-3.5" />
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <BedDouble className="h-3.5 w-3.5 shrink-0" />
                         {bed.bedNumber}
                       </span>
                       {isSelected ? (
-                        <Check className="h-3.5 w-3.5 text-cyan-300" />
+                        <Check className="h-3.5 w-3.5 shrink-0 text-cyan-300" />
                       ) : (
-                        <span className="text-[10px] uppercase">
+                        <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">
                           {isAvailable ? 'Free' : bed.status === 'MAINTENANCE' ? 'Maint' : 'Held'}
                         </span>
                       )}
