@@ -25,6 +25,7 @@ import { propertyApi, userApi } from '../../api/endpoints';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { InteractiveBedSelector } from '../../components/property/InteractiveBedSelector';
+import { PriceCalculatorCard } from '../../components/property/PriceCalculatorCard';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { DateTimePicker } from '../../components/ui/DateTimePicker';
@@ -406,6 +407,24 @@ export function PropertyDetailPage() {
               </div>
             )}
           </div>
+
+          <PriceCalculatorCard
+            pricing={p.pricing}
+            hourlyRateOverride={selectedBed?.hourlyRate}
+            nightlyRateOverride={selectedBed?.nightlyRate}
+            checkIn={checkIn}
+            checkOut={checkOut}
+            stayType={stayType}
+            minShortStayHours={p.minShortStayHours}
+            maxShortStayDays={p.maxShortStayDays}
+            minLongStayDays={p.minLongStayDays}
+            maxLongStayMonths={p.maxLongStayMonths}
+            onChangeDuration={(nextOut, nextType) => {
+              setCheckOut(nextOut);
+              setStayType(nextType);
+              setSelectedBed(null);
+            }}
+          />
 
           <button
             type="button"
