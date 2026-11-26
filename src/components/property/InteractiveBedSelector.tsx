@@ -55,7 +55,7 @@ export function InteractiveBedSelector({
     });
 
   return (
-    <div className="glass-panel rounded-2xl p-5">
+    <div className="glass-panel flex min-h-[430px] flex-col rounded-2xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white">Room &amp; Bed Selector</h2>
@@ -185,7 +185,7 @@ export function InteractiveBedSelector({
           </button>
         </div>
       ) : viewMode === 'spatial' ? (
-        <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="mt-5 grid max-h-[400px] flex-1 gap-4 overflow-y-auto pr-1 md:grid-cols-2">
           {filteredRooms.map((room) => (
             <div key={room.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
               <div className="flex items-center justify-between">
@@ -245,7 +245,7 @@ export function InteractiveBedSelector({
           ))}
         </div>
       ) : (
-        <div className="mt-5 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/60">
+        <div className="mt-5 max-h-[400px] flex-1 divide-y divide-slate-800 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60">
           {filteredRooms.flatMap((room) =>
             room.beds.map((bed) => {
               const availInfo = availableMap.get(bed.id);
