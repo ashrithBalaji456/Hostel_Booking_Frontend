@@ -50,6 +50,7 @@ export function PropertyDetailPage() {
   );
   const [stayType, setStayType] = useState<StayType>('SHORT_STAY');
   const [selectedBed, setSelectedBed] = useState<AvailableBedInfo | null>(null);
+  const [appliedCouponCode, setAppliedCouponCode] = useState('');
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [carouselPaused, setCarouselPaused] = useState(false);
 
@@ -135,6 +136,7 @@ export function PropertyDetailPage() {
       checkOut: toIsoUtc(checkOut),
       stayType,
       instantBooking: String(p.instantBookingEnabled),
+      ...(appliedCouponCode ? { couponCode: appliedCouponCode } : {}),
     });
     navigate(`/checkout?${qs.toString()}`);
   };
@@ -409,6 +411,7 @@ export function PropertyDetailPage() {
           </div>
 
           <PriceCalculatorCard
+            propertyId={p.id}
             pricing={p.pricing}
             hourlyRateOverride={selectedBed?.hourlyRate}
             nightlyRateOverride={selectedBed?.nightlyRate}
@@ -419,6 +422,8 @@ export function PropertyDetailPage() {
             maxShortStayDays={p.maxShortStayDays}
             minLongStayDays={p.minLongStayDays}
             maxLongStayMonths={p.maxLongStayMonths}
+            appliedCouponCode={appliedCouponCode}
+            onCouponApplied={setAppliedCouponCode}
             onChangeDuration={(nextOut, nextType) => {
               setCheckOut(nextOut);
               setStayType(nextType);

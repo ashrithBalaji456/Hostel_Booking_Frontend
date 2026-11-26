@@ -428,6 +428,15 @@ export interface CouponResponse {
   active: boolean;
 }
 
+export interface CouponPreviewResponse {
+  code: string;
+  discountType: string;
+  discountValue: number;
+  discountAmount: number;
+  minBookingAmount: number;
+  maxDiscountAmount?: number;
+}
+
 export interface OwnerDashboardResponse {
   totalProperties: number;
   pendingBookings: number;

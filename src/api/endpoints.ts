@@ -9,6 +9,7 @@ import type {
   BookingResponse,
   BookingStatusHistory,
   BookingStatusResponse,
+  CouponPreviewResponse,
   CouponResponse,
   FavoriteResponse,
   InterviewModeResult,
@@ -293,4 +294,11 @@ export const adminApi = {
       `/api/v1/admin/safety/complaints/${complaintId}/resolve${buildQuery({ status, resolution, adminNotes, suspendProperty })}`,
       { method: 'POST' },
     ),
+};
+
+export const publicCouponApi = {
+  listActive: (propertyId?: string) =>
+    apiRequest<CouponResponse[]>(`/api/v1/coupons/active${buildQuery({ propertyId })}`),
+  preview: (params: { code: string; propertyId: string; stayType: string; baseAmount: number }) =>
+    apiRequest<CouponPreviewResponse>(`/api/v1/coupons/preview${buildQuery(params)}`),
 };

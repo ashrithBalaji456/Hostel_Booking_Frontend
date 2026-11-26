@@ -1,8 +1,12 @@
-import { Calculator } from 'lucide-react';
-import type { PricingResponse, StayType } from '../../types/api';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Calculator, Tag, X } from 'lucide-react';
+import { publicCouponApi } from '../../api/endpoints';
+import type { CouponPreviewResponse, PricingResponse, StayType } from '../../types/api';
 import { formatINR } from '../../utils/format';
 
 interface PriceCalculatorCardProps {
+  propertyId: string;
   pricing?: PricingResponse | null;
   hourlyRateOverride?: number | null;
   nightlyRateOverride?: number | null;
@@ -13,6 +17,8 @@ interface PriceCalculatorCardProps {
   maxShortStayDays: number;
   minLongStayDays: number;
   maxLongStayMonths: number;
+  appliedCouponCode: string;
+  onCouponApplied: (code: string) => void;
   onChangeDuration: (nextCheckOutLocal: string, nextStayType: StayType) => void;
 }
 
@@ -22,6 +28,7 @@ function toLocalDateTimeInput(date: Date): string {
 }
 
 export function PriceCalculatorCard({
+  propertyId,
   pricing,
   hourlyRateOverride,
   nightlyRateOverride,
@@ -32,8 +39,22 @@ export function PriceCalculatorCard({
   maxShortStayDays,
   minLongStayDays,
   maxLongStayMonths,
+  appliedCouponCode,
+  onCouponApplied,
   onChangeDuration,
 }: PriceCalculatorCardProps) {
+  const [couponInput, setCouponInput] = useState(appliedCouponCode);
+  const [couponPreview, setCouponPreview] = useState<CouponPreviewResponse | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [verifyingCoupon, setVerifyingCoupon] = useState(false);
+
+  const activeCouponsQuery = useQuery({
+    queryKey: ['active-coupons', propertyId],
+    queryFn: () => publicCouponApi.listActive(propertyId),
+    enabled: Boolean(propertyId),
+    retry: false,
+  });
+
   const startMs = new Date(checkIn).getTime();
   const endMs = new Date(checkOut).getTime();
   const totalMinutes = Number.isFinite(startMs) && Number.isFinite(endMs) ? Math.max(0, Math.round((endMs - startMs) / 60000)) : 0;
@@ -91,7 +112,47 @@ export function PriceCalculatorCard({
   const discountPct = pricing?.discountPercentage ?? 0;
   const discountAmount = Math.round(baseAmount * (discountPct / 100) * 100) / 100;
   const extraCharges = pricing?.extraCharges ?? 0;
-  const totalAmount = Math.max(0, Math.round((baseAmount - discountAmount + depositAmount + extraCharges) * 100) / 100);
+  const couponDiscount = couponPreview ? couponPreview.discountAmount : 0;
+  const totalAmount = Math.max(
+    0,
+    Math.round((baseAmount - discountAmount - couponDiscount + depositAmount + extraCharges) * 100) / 100,
+  );
+
+  const verifyCoupon = async (codeToVerify: string) => {
+    const clean = codeToVerify.trim().toUpperCase();
+    if (!clean || !propertyId || baseAmount <= 0) {
+      setCouponPreview(null);
+      setCouponError(null);
+      onCouponApplied('');
+      return;
+    }
+    setVerifyingCoupon(true);
+    setCouponError(null);
+    try {
+      const res = await publicCouponApi.preview({
+        code: clean,
+        propertyId,
+        stayType,
+        baseAmount: Math.round(baseAmount * 100) / 100,
+      });
+      setCouponPreview(res);
+      setCouponInput(res.code);
+      onCouponApplied(res.code);
+    } catch (err) {
+      setCouponPreview(null);
+      onCouponApplied('');
+      setCouponError(err instanceof Error ? err.message : 'Coupon is not applicable for this stay');
+    } finally {
+      setVerifyingCoupon(false);
+    }
+  };
+
+  // Re-verify applied coupon automatically when duration, stayType, or selected bed rate changes
+  useEffect(() => {
+    if (!appliedCouponCode) return;
+    void verifyCoupon(appliedCouponCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseAmount, stayType, propertyId]);
 
   const applyDaysAndHours = (daysVal: number, hoursVal: number) => {
     if (!Number.isFinite(startMs)) return;
@@ -99,9 +160,16 @@ export function PriceCalculatorCard({
     const safeHours = Math.max(0, Math.min(23, Math.floor(hoursVal)));
     const totalH = Math.max(minShortStayHours, safeDays * 24 + safeHours);
     const nextEnd = new Date(startMs + totalH * 3600 * 1000);
-    const nextType: StayType = totalH > maxShortStayDays * 24 ? 'LONG_STAY' : totalH >= minLongStayDays * 24 && stayType === 'LONG_STAY' ? 'LONG_STAY' : 'SHORT_STAY';
+    const nextType: StayType =
+      totalH > maxShortStayDays * 24
+        ? 'LONG_STAY'
+        : totalH >= minLongStayDays * 24 && stayType === 'LONG_STAY'
+        ? 'LONG_STAY'
+        : 'SHORT_STAY';
     onChangeDuration(toLocalDateTimeInput(nextEnd), nextType);
   };
+
+  const activeCoupons = activeCouponsQuery.data ?? [];
 
   return (
     <div className="mt-4 rounded-xl border border-cyan-500/25 bg-slate-900/80 p-4">
@@ -183,6 +251,80 @@ export function PriceCalculatorCard({
         })}
       </div>
 
+      {/* Active Coupons & Verification */}
+      <div className="mt-3 border-t border-slate-800 pt-3">
+        <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+          <Tag className="h-3.5 w-3.5 text-emerald-400" />
+          Apply Coupon
+        </p>
+
+        {activeCoupons.length > 0 && (
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {activeCoupons.map((c) => {
+              const isApplied = couponPreview?.code === c.code;
+              const badge =
+                c.discountType === 'PERCENTAGE' ? `${c.discountValue}% OFF` : `${formatINR(c.discountValue)} OFF`;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => void verifyCoupon(c.code)}
+                  className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${
+                    isApplied
+                      ? 'border-emerald-400 bg-emerald-500/20 text-emerald-200'
+                      : 'border-emerald-500/35 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                  }`}
+                >
+                  {c.code} · {badge}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center gap-1.5">
+          <input
+            type="text"
+            value={couponInput}
+            onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+            placeholder="Enter coupon code"
+            className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs uppercase text-white placeholder:normal-case placeholder:text-slate-500"
+          />
+          {couponPreview ? (
+            <button
+              type="button"
+              onClick={() => {
+                setCouponPreview(null);
+                setCouponError(null);
+                setCouponInput('');
+                onCouponApplied('');
+              }}
+              aria-label="Remove coupon"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" /> Clear
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={verifyingCoupon || !couponInput.trim()}
+              onClick={() => void verifyCoupon(couponInput)}
+              className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+            >
+              {verifyingCoupon ? 'Checking…' : 'Verify'}
+            </button>
+          )}
+        </div>
+
+        {couponError && <p className="mt-1.5 text-[11px] text-rose-300">{couponError}</p>}
+        {couponPreview && (
+          <p className="mt-1.5 text-[11px] text-emerald-300">
+            Coupon <span className="font-semibold">{couponPreview.code}</span> verified — saves{' '}
+            {formatINR(couponPreview.discountAmount)}!
+          </p>
+        )}
+      </div>
+
       {/* Breakdown */}
       <div className="mt-3 space-y-1.5 border-t border-slate-800 pt-3 text-xs">
         {rateLabel && (
@@ -193,8 +335,14 @@ export function PriceCalculatorCard({
         )}
         {discountAmount > 0 && (
           <div className="flex justify-between text-emerald-300">
-            <span>Discount ({discountPct}%)</span>
+            <span>Property Discount ({discountPct}%)</span>
             <span>-{formatINR(discountAmount)}</span>
+          </div>
+        )}
+        {couponDiscount > 0 && (
+          <div className="flex justify-between text-emerald-300">
+            <span>Coupon ({couponPreview?.code})</span>
+            <span>-{formatINR(couponDiscount)}</span>
           </div>
         )}
         {extraCharges > 0 && (
@@ -210,14 +358,12 @@ export function PriceCalculatorCard({
           </div>
         )}
         <div className="flex justify-between border-t border-slate-800 pt-2 text-sm font-bold text-white">
-          <span>Estimated Total</span>
+          <span>{couponDiscount > 0 ? 'Total After Coupon' : 'Estimated Total'}</span>
           <span className="text-cyan-300">{formatINR(totalAmount)}</span>
         </div>
       </div>
 
-      {validationNote && (
-        <p className="mt-2 text-[11px] text-amber-300">{validationNote}</p>
-      )}
+      {validationNote && <p className="mt-2 text-[11px] text-amber-300">{validationNote}</p>}
     </div>
   );
 }

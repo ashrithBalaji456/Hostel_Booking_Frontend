@@ -35,6 +35,7 @@ export function CheckoutPage() {
   const checkIn = params.get('checkIn') ?? '';
   const checkOut = params.get('checkOut') ?? '';
   const stayType = (params.get('stayType') ?? 'SHORT_STAY') as StayType;
+  const initialCouponCode = params.get('couponCode') ?? '';
 
   const [booking, setBooking] = useState<BookingResponse | null>(null);
   const [payment, setPayment] = useState<PaymentResponse | null>(null);
@@ -68,6 +69,7 @@ export function CheckoutPage() {
         guestName: values.guestName,
         guestPhone: values.guestPhone,
         requestOwnerApproval: values.requestOwnerApproval,
+        ...(initialCouponCode ? { couponCode: initialCouponCode } : {}),
       });
       setBooking(created);
       pushToast(`Reservation created (${created.bookingReference})`, 'success');
