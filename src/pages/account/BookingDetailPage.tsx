@@ -92,7 +92,7 @@ export function BookingDetailPage() {
       return paymentApi.verify(p.id, { providerTransactionId: `txn_${Date.now()}`, simulateFailure: false });
     },
     onSuccess: () => {
-      pushToast('Payment succeeded and booking confirmed', 'success');
+      pushToast('Payment succeeded', 'success');
       refreshAll();
     },
     onError: (e: Error) => pushToast(e.message, 'error'),
@@ -147,14 +147,16 @@ export function BookingDetailPage() {
         </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
-          {b.bookingStatus === 'PENDING' && !b.approvalRequired && b.amountPaid < b.totalAmount && (
+          {(b.bookingStatus === 'PENDING' || b.bookingStatus === 'CONFIRMED') && !b.approvalRequired && b.amountPaid < b.totalAmount && (
             <button
               type="button"
               disabled={payPendingMutation.isPending}
               onClick={() => payPendingMutation.mutate()}
               className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500"
             >
-              {payPendingMutation.isPending ? 'Processing...' : `Complete Payment (${formatINR(b.totalAmount - b.amountPaid)})`}
+              {payPendingMutation.isPending
+                ? 'Processing...'
+                : `${b.bookingStatus === 'CONFIRMED' ? 'Pay Remaining Balance' : 'Complete Payment'} (${formatINR(b.totalAmount - b.amountPaid)})`}
             </button>
           )}
           {b.bookingStatus === 'CONFIRMED' && (
