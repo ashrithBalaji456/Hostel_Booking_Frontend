@@ -134,6 +134,7 @@ export interface PropertyDetailResponse {
   maxShortStayDays: number;
   minLongStayDays: number;
   maxLongStayMonths: number;
+  minDepositRefundMonths?: number;
   rejectionReason?: string;
   amenities: string[];
   pricing?: PricingResponse;

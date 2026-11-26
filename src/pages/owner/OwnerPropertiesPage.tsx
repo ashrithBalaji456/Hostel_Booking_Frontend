@@ -108,6 +108,9 @@ export function OwnerPropertiesPage() {
   const [nightlyRate, setNightlyRate] = useState(initialDraft.nightlyRate ?? '500');
   const [monthlyRate, setMonthlyRate] = useState(initialDraft.monthlyRate ?? '9000');
   const [securityDeposit, setSecurityDeposit] = useState(initialDraft.securityDeposit ?? '2000');
+  const [minLongStayDays, setMinLongStayDays] = useState('7');
+  const [maxLongStayMonths, setMaxLongStayMonths] = useState('12');
+  const [minDepositRefundMonths, setMinDepositRefundMonths] = useState('1');
 
   // Location capture & explicit confirmation state
   const [accuracyMeters, setAccuracyMeters] = useState<number | null>(initialDraft.accuracyMeters ?? null);
@@ -209,6 +212,9 @@ export function OwnerPropertiesPage() {
         setSecurityDeposit(String(p.pricing.securityDeposit ?? 0));
       }
       setAmenityCodes(p.amenities?.length ? p.amenities : ['WIFI', 'LOCKER']);
+      setMinLongStayDays(String(p.minLongStayDays ?? 7));
+      setMaxLongStayMonths(String(p.maxLongStayMonths ?? 12));
+      setMinDepositRefundMonths(String(p.minDepositRefundMonths ?? 1));
       setImages(
         (p.images ?? []).map((img, idx) => ({
           imageUrl: img.imageUrl,
@@ -310,6 +316,9 @@ export function OwnerPropertiesPage() {
         longitude: Number(longitude),
         genderPolicy,
         instantBookingEnabled: true,
+        minLongStayDays: Number(minLongStayDays || 7),
+        maxLongStayMonths: Number(maxLongStayMonths || 12),
+        minDepositRefundMonths: Number(minDepositRefundMonths ?? 1),
         amenityCodes,
         images: images.map((img, idx) => ({
           imageUrl: img.imageUrl,
@@ -645,6 +654,70 @@ export function OwnerPropertiesPage() {
             <div>
               <label htmlFor="prop-deposit" className="mb-1 block text-xs font-medium text-slate-300">Security Deposit (₹)</label>
               <input id="prop-deposit" type="number" min="0" value={securityDeposit} onChange={(e) => setSecurityDeposit(e.target.value)} placeholder="e.g. 2000" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
+            </div>
+            <div>
+              <label htmlFor="prop-min-long-days" className="mb-1 block text-xs font-medium text-slate-300">
+                Min Long Stay (Days)
+              </label>
+              <input
+                id="prop-min-long-days"
+                type="number"
+                min="1"
+                value={minLongStayDays}
+                onChange={(e) => setMinLongStayDays(e.target.value)}
+                placeholder="e.g. 30 for 1 month"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              />
+            </div>
+            <div>
+              <label htmlFor="prop-max-long-months" className="mb-1 block text-xs font-medium text-slate-300">
+                Max Long Stay (Months)
+              </label>
+              <input
+                id="prop-max-long-months"
+                type="number"
+                min="1"
+                max="36"
+                value={maxLongStayMonths}
+                onChange={(e) => setMaxLongStayMonths(e.target.value)}
+                placeholder="e.g. 12"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="prop-deposit-refund-months" className="mb-1 block text-xs font-medium text-slate-300">
+                Advance / Deposit Refund Minimum Stay (Months)
+              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  id="prop-deposit-refund-months"
+                  type="number"
+                  min="0"
+                  max="24"
+                  value={minDepositRefundMonths}
+                  onChange={(e) => setMinDepositRefundMonths(e.target.value)}
+                  className="w-28 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+                />
+                {[
+                  { label: 'Always Refundable (0m)', val: '0' },
+                  { label: 'Min 1 Month', val: '1' },
+                  { label: 'Min 2 Months', val: '2' },
+                  { label: 'Min 3 Months', val: '3' },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => setMinDepositRefundMonths(opt.val)}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium transition ${
+                      minDepositRefundMonths === opt.val
+                        ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                        : 'border-slate-700 bg-slate-950/70 text-slate-300 hover:border-slate-600'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 

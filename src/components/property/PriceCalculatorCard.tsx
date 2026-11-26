@@ -18,6 +18,7 @@ interface PriceCalculatorCardProps {
   maxShortStayDays: number;
   minLongStayDays: number;
   maxLongStayMonths: number;
+  minDepositRefundMonths?: number;
   appliedCouponCode: string;
   onCouponApplied: (code: string) => void;
   onChangeDuration: (nextCheckOutLocal: string, nextStayType: StayType) => void;
@@ -41,6 +42,7 @@ export function PriceCalculatorCard({
   maxShortStayDays,
   minLongStayDays,
   maxLongStayMonths,
+  minDepositRefundMonths = 1,
   appliedCouponCode,
   onCouponApplied,
   onChangeDuration,
@@ -225,16 +227,19 @@ export function PriceCalculatorCard({
         </div>
       </div>
 
-      {/* Quick duration presets */}
+      {/* Quick duration presets (Hours, Days, & Months) */}
       <div className="mt-2.5 flex flex-wrap gap-1.5">
         {[
-          { label: '3h', d: 0, h: 3 },
-          { label: '6h', d: 0, h: 6 },
-          { label: '12h', d: 0, h: 12 },
-          { label: '1d', d: 1, h: 0 },
-          { label: '3d', d: 3, h: 0 },
-          { label: '7d', d: 7, h: 0 },
-          { label: '30d', d: 30, h: 0 },
+          { label: '3h', d: 0, h: 3, forceLong: false },
+          { label: '6h', d: 0, h: 6, forceLong: false },
+          { label: '12h', d: 0, h: 12, forceLong: false },
+          { label: '1d', d: 1, h: 0, forceLong: false },
+          { label: '3d', d: 3, h: 0, forceLong: false },
+          { label: '7d', d: 7, h: 0, forceLong: false },
+          { label: '1 mo', d: 30, h: 0, forceLong: true },
+          { label: '2 mo', d: 60, h: 0, forceLong: true },
+          { label: '3 mo', d: 90, h: 0, forceLong: true },
+          { label: '6 mo', d: 180, h: 0, forceLong: true },
         ].map((preset) => {
           const active = wholeDays === preset.d && remHours === preset.h;
           return (
@@ -245,7 +250,8 @@ export function PriceCalculatorCard({
                 if (!Number.isFinite(startMs)) return;
                 const totalH = preset.d * 24 + preset.h;
                 const nextEnd = new Date(startMs + totalH * 3600 * 1000);
-                const nextType: StayType = preset.d > maxShortStayDays ? 'LONG_STAY' : 'SHORT_STAY';
+                const nextType: StayType =
+                  preset.forceLong || preset.d > maxShortStayDays ? 'LONG_STAY' : 'SHORT_STAY';
                 onChangeDuration(toLocalDateTimeInput(nextEnd), nextType);
               }}
               className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${
@@ -372,6 +378,15 @@ export function PriceCalculatorCard({
         </div>
       </div>
 
+      {stayType === 'LONG_STAY' && depositAmount > 0 && (
+        <p className="mt-2 text-[11px] text-slate-300">
+          {minDepositRefundMonths <= 0
+            ? 'Advance/Security deposit is refundable on checkout.'
+            : `Advance/Security deposit is refundable only after a minimum ${minDepositRefundMonths} month${
+                minDepositRefundMonths > 1 ? 's' : ''
+              } stay (${minDepositRefundMonths * 30} days).`}
+        </p>
+      )}
       {validationNote && <p className="mt-2 text-[11px] text-amber-300">{validationNote}</p>}
     </div>
   );

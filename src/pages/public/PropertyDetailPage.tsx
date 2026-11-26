@@ -406,7 +406,22 @@ export function PropertyDetailPage() {
                   id="pd-stay"
                   ariaLabel="Stay Type"
                   value={stayType}
-                  onChange={(val) => setStayType(val)}
+                  onChange={(val) => {
+                    setStayType(val);
+                    if (val === 'LONG_STAY') {
+                      const startMs = new Date(checkIn).getTime();
+                      const endMs = new Date(checkOut).getTime();
+                      const minDays = Math.max(30, p.minLongStayDays);
+                      if (Number.isFinite(startMs) && (!Number.isFinite(endMs) || (endMs - startMs) / 86_400_000 < p.minLongStayDays)) {
+                        const nextEnd = new Date(startMs + minDays * 86_400_000);
+                        const pad = (n: number) => String(n).padStart(2, '0');
+                        setCheckOut(
+                          `${nextEnd.getFullYear()}-${pad(nextEnd.getMonth() + 1)}-${pad(nextEnd.getDate())}T${pad(nextEnd.getHours())}:${pad(nextEnd.getMinutes())}`,
+                        );
+                        setSelectedBeds([]);
+                      }
+                    }
+                  }}
                   className="mt-1"
                   options={[
                     { value: 'SHORT_STAY', label: `Short Stay (Min ${p.minShortStayHours}h, Max ${p.maxShortStayDays}d)` },
@@ -478,6 +493,7 @@ export function PropertyDetailPage() {
             maxShortStayDays={p.maxShortStayDays}
             minLongStayDays={p.minLongStayDays}
             maxLongStayMonths={p.maxLongStayMonths}
+            minDepositRefundMonths={p.minDepositRefundMonths}
             appliedCouponCode={appliedCouponCode}
             onCouponApplied={setAppliedCouponCode}
             onChangeDuration={(nextOut, nextType) => {
