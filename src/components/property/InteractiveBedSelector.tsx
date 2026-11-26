@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { BedDouble, Check, RefreshCw } from 'lucide-react';
+import { SelectDropdown } from '../ui/SelectDropdown';
 import type { AvailableBedInfo, PropertyAvailabilityResponse, RoomResponse } from '../../types/api';
 import { formatINR } from '../../utils/format';
 
@@ -21,13 +22,37 @@ export function InteractiveBedSelector({
   onSelectBed,
 }: InteractiveBedSelectorProps) {
   const [viewMode, setViewMode] = useState<'spatial' | 'list'>('spatial');
-  const [selectedFloor, setSelectedFloor] = useState<number | 'ALL'>('ALL');
+  const [selectedFloor, setSelectedFloor] = useState<string>('ALL');
+  const [selectedSharing, setSelectedSharing] = useState<string>('ALL');
+  const [sortBy, setSortBy] = useState<'default' | 'avail_desc' | 'occ_asc' | 'occ_desc' | 'cap_asc' | 'cap_desc'>('default');
 
   const floors = Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
-  const filteredRooms = selectedFloor === 'ALL' ? rooms : rooms.filter((r) => r.floor === selectedFloor);
+  const sharingTypes = Array.from(new Set(rooms.map((r) => r.roomType)));
 
   const availableMap = new Map<string, AvailableBedInfo>();
   availability?.availableBeds.forEach((b) => availableMap.set(b.bedId, b));
+
+  const getRoomFreeCount = (room: RoomResponse) =>
+    room.beds.filter((b) => availableMap.has(b.id)).length;
+
+  const getRoomOccupancyRatio = (room: RoomResponse) => {
+    const total = room.beds.length || room.capacity || 1;
+    const free = getRoomFreeCount(room);
+    return (total - free) / total;
+  };
+
+  const filteredRooms = rooms
+    .filter((r) => (selectedFloor === 'ALL' ? true : r.floor === Number(selectedFloor)))
+    .filter((r) => (selectedSharing === 'ALL' ? true : r.roomType === selectedSharing))
+    .slice()
+    .sort((a, b) => {
+      if (sortBy === 'avail_desc') return getRoomFreeCount(b) - getRoomFreeCount(a);
+      if (sortBy === 'occ_asc') return getRoomOccupancyRatio(a) - getRoomOccupancyRatio(b);
+      if (sortBy === 'occ_desc') return getRoomOccupancyRatio(b) - getRoomOccupancyRatio(a);
+      if (sortBy === 'cap_asc') return a.capacity - b.capacity;
+      if (sortBy === 'cap_desc') return b.capacity - a.capacity;
+      return a.floor - b.floor || a.roomNumber.localeCompare(b.roomNumber, undefined, { numeric: true });
+    });
 
   return (
     <div className="glass-panel rounded-2xl p-5">
@@ -83,38 +108,82 @@ export function InteractiveBedSelector({
         </span>
       </div>
 
-      {floors.length > 1 && (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setSelectedFloor('ALL')}
-            className={`rounded-xl border px-3 py-1 text-xs font-medium transition ${
-              selectedFloor === 'ALL'
-                ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600'
-            }`}
-          >
-            All Floors
-          </button>
-          {floors.map((fl) => (
-            <button
-              key={fl}
-              type="button"
-              onClick={() => setSelectedFloor(fl)}
-              className={`rounded-xl border px-3 py-1 text-xs font-medium transition ${
-                selectedFloor === fl
-                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                  : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600'
-              }`}
-            >
-              {fl === 0 ? 'Ground Floor' : `Floor ${fl}`}
-            </button>
-          ))}
+      {rooms.length > 0 && (
+        <div className="mt-4 grid gap-2.5 sm:grid-cols-3">
+          <div>
+            <label htmlFor="bed-filter-floor" className="mb-1 block text-[11px] text-slate-400">
+              Filter by Floor
+            </label>
+            <SelectDropdown
+              id="bed-filter-floor"
+              ariaLabel="Filter by Floor"
+              value={selectedFloor}
+              onChange={setSelectedFloor}
+              options={[
+                { value: 'ALL', label: 'All Floors' },
+                ...floors.map((fl) => ({
+                  value: String(fl),
+                  label: fl === 0 ? 'Ground Floor' : `Floor ${fl}`,
+                })),
+              ]}
+            />
+          </div>
+          <div>
+            <label htmlFor="bed-filter-sharing" className="mb-1 block text-[11px] text-slate-400">
+              Room Sharing
+            </label>
+            <SelectDropdown
+              id="bed-filter-sharing"
+              ariaLabel="Room Sharing"
+              value={selectedSharing}
+              onChange={setSelectedSharing}
+              options={[
+                { value: 'ALL', label: 'All Sharing Types' },
+                ...sharingTypes.map((st) => ({
+                  value: st,
+                  label: st.replace(/_/g, ' '),
+                })),
+              ]}
+            />
+          </div>
+          <div>
+            <label htmlFor="bed-sort-occ" className="mb-1 block text-[11px] text-slate-400">
+              Sort by Occupancy
+            </label>
+            <SelectDropdown
+              id="bed-sort-occ"
+              ariaLabel="Sort by Occupancy"
+              value={sortBy}
+              onChange={(val) => setSortBy(val as typeof sortBy)}
+              options={[
+                { value: 'default', label: 'Floor & Room Order' },
+                { value: 'avail_desc', label: 'Most Free Beds First' },
+                { value: 'occ_asc', label: 'Lowest Occupancy First' },
+                { value: 'occ_desc', label: 'Highest Occupancy First' },
+                { value: 'cap_asc', label: 'Sharing: Low to High' },
+                { value: 'cap_desc', label: 'Sharing: High to Low' },
+              ]}
+            />
+          </div>
         </div>
       )}
 
       {rooms.length === 0 ? (
         <p className="mt-6 text-sm text-slate-400">No rooms configured for this property yet.</p>
+      ) : filteredRooms.length === 0 ? (
+        <div className="mt-6 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-sm text-slate-300">
+          <span>No rooms match the selected floor or sharing filter.</span>
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedFloor('ALL');
+              setSelectedSharing('ALL');
+            }}
+            className="rounded-lg border border-cyan-500/40 bg-cyan-500/15 px-3 py-1 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25"
+          >
+            Reset Filters
+          </button>
+        </div>
       ) : viewMode === 'spatial' ? (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {filteredRooms.map((room) => (
