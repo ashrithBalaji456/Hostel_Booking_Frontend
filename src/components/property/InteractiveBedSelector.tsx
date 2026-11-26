@@ -21,6 +21,10 @@ export function InteractiveBedSelector({
   onSelectBed,
 }: InteractiveBedSelectorProps) {
   const [viewMode, setViewMode] = useState<'spatial' | 'list'>('spatial');
+  const [selectedFloor, setSelectedFloor] = useState<number | 'ALL'>('ALL');
+
+  const floors = Array.from(new Set(rooms.map((r) => r.floor))).sort((a, b) => a - b);
+  const filteredRooms = selectedFloor === 'ALL' ? rooms : rooms.filter((r) => r.floor === selectedFloor);
 
   const availableMap = new Map<string, AvailableBedInfo>();
   availability?.availableBeds.forEach((b) => availableMap.set(b.bedId, b));
@@ -79,18 +83,50 @@ export function InteractiveBedSelector({
         </span>
       </div>
 
+      {floors.length > 1 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSelectedFloor('ALL')}
+            className={`rounded-xl border px-3 py-1 text-xs font-medium transition ${
+              selectedFloor === 'ALL'
+                ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600'
+            }`}
+          >
+            All Floors
+          </button>
+          {floors.map((fl) => (
+            <button
+              key={fl}
+              type="button"
+              onClick={() => setSelectedFloor(fl)}
+              className={`rounded-xl border px-3 py-1 text-xs font-medium transition ${
+                selectedFloor === fl
+                  ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                  : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600'
+              }`}
+            >
+              {fl === 0 ? 'Ground Floor' : `Floor ${fl}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {rooms.length === 0 ? (
         <p className="mt-6 text-sm text-slate-400">No rooms configured for this property yet.</p>
       ) : viewMode === 'spatial' ? (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
-          {rooms.map((room) => (
+          {filteredRooms.map((room) => (
             <div key={room.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-white">
                     Room {room.roomNumber} · {room.roomType}
                   </h3>
-                  <p className="text-xs text-slate-400">Floor {room.floor} · Capacity {room.capacity}</p>
+                  <p className="text-xs text-slate-400">
+                    {room.floor === 0 ? 'Ground Floor' : `Floor ${room.floor}`} · Capacity {room.capacity}
+                  </p>
                 </div>
                 {room.nightlyRate != null && (
                   <span className="text-xs font-semibold text-cyan-300">{formatINR(room.nightlyRate)}/night</span>
@@ -141,7 +177,7 @@ export function InteractiveBedSelector({
         </div>
       ) : (
         <div className="mt-5 divide-y divide-slate-800 rounded-2xl border border-slate-800 bg-slate-900/60">
-          {rooms.flatMap((room) =>
+          {filteredRooms.flatMap((room) =>
             room.beds.map((bed) => {
               const availInfo = availableMap.get(bed.id);
               const isAvailable = Boolean(availInfo);

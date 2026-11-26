@@ -179,6 +179,10 @@ export function OwnerPropertiesPage() {
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newImageType, setNewImageType] = useState<ImageType>('COVER');
   const [roomNumber, setRoomNumber] = useState('101');
+  const [totalFloors, setTotalFloors] = useState('3');
+  const [floorMode, setFloorMode] = useState<'select' | 'custom'>('select');
+  const [selectedFloor, setSelectedFloor] = useState('1');
+  const [customFloor, setCustomFloor] = useState('');
   const [roomType, setRoomType] = useState<RoomType>('DOUBLE');
   const [customRoomLabel, setCustomRoomLabel] = useState('');
   const [capacity, setCapacity] = useState('2');
@@ -396,17 +400,22 @@ export function OwnerPropertiesPage() {
   };
 
   const addRoomMutation = useMutation({
-    mutationFn: () =>
-      ownerApi.addRoom(targetPropertyId, {
+    mutationFn: () => {
+      const resolvedFloor =
+        floorMode === 'custom' ? Number(customFloor || 0) : Number(selectedFloor || 1);
+      return ownerApi.addRoom(targetPropertyId, {
         roomNumber,
         roomType,
-        floor: 1,
+        floor: Number.isFinite(resolvedFloor) ? resolvedFloor : 1,
         capacity: Number(capacity),
         amenities: roomType === 'CUSTOM' && customRoomLabel.trim() ? customRoomLabel.trim() : undefined,
         autoCreateBeds: true,
-      }),
+      });
+    },
     onSuccess: (res) => {
-      pushToast(`Room ${res.roomNumber} created with ${res.beds.length} beds`, 'success');
+      pushToast(`Room ${res.roomNumber} (Floor ${res.floor}) created with ${res.beds.length} beds`, 'success');
+      void qc.invalidateQueries({ queryKey: ['owner-properties'] });
+      void qc.invalidateQueries({ queryKey: ['property-detail', targetPropertyId] });
     },
     onError: (e: Error) => pushToast(e.message, 'error'),
   });
@@ -1089,6 +1098,59 @@ export function OwnerPropertiesPage() {
             <label htmlFor="room-number" className="mb-1 block text-xs font-medium text-slate-300">Room Number</label>
             <input id="room-number" required value={roomNumber} onChange={(e) => setRoomNumber(e.target.value)} placeholder="e.g. 101" className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white" />
           </div>
+          <div>
+            <label htmlFor="building-floors" className="mb-1 block text-xs font-medium text-slate-300">Building Floors</label>
+            <input
+              id="building-floors"
+              type="number"
+              min="1"
+              max="100"
+              value={totalFloors}
+              onChange={(e) => setTotalFloors(e.target.value)}
+              placeholder="e.g. 4"
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+            />
+          </div>
+          <div>
+            <label htmlFor="room-floor" className="mb-1 block text-xs font-medium text-slate-300">Floor</label>
+            <SelectDropdown
+              id="room-floor"
+              ariaLabel="Floor"
+              value={floorMode === 'custom' ? 'CUSTOM' : selectedFloor}
+              onChange={(val) => {
+                if (val === 'CUSTOM') {
+                  setFloorMode('custom');
+                } else {
+                  setFloorMode('select');
+                  setSelectedFloor(val);
+                }
+              }}
+              options={[
+                { value: '0', label: 'Ground Floor (0)' },
+                ...Array.from({ length: Math.min(100, Math.max(1, Number(totalFloors) || 1)) }, (_, i) => ({
+                  value: String(i + 1),
+                  label: `Floor ${i + 1}`,
+                })),
+                { value: 'CUSTOM', label: 'Custom Floor…' },
+              ]}
+            />
+          </div>
+          {floorMode === 'custom' && (
+            <div>
+              <label htmlFor="room-custom-floor" className="mb-1 block text-xs font-medium text-slate-300">
+                Custom Floor Number
+              </label>
+              <input
+                id="room-custom-floor"
+                required
+                type="number"
+                value={customFloor}
+                onChange={(e) => setCustomFloor(e.target.value)}
+                placeholder="e.g. -1 (Basement) or 12"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white"
+              />
+            </div>
+          )}
           <div>
             <label htmlFor="room-type" className="mb-1 block text-xs font-medium text-slate-300">Room Type</label>
             <SelectDropdown
