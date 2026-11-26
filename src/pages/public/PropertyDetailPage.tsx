@@ -11,6 +11,7 @@ import {
   Flag,
   Flame,
   Heart,
+  Images,
   Lock,
   MapPin,
   ShieldCheck,
@@ -26,6 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { InteractiveBedSelector } from '../../components/property/InteractiveBedSelector';
 import { PriceCalculatorCard } from '../../components/property/PriceCalculatorCard';
+import { PropertyGalleryModal } from '../../components/property/PropertyGalleryModal';
 import { ErrorState } from '../../components/ui/ErrorState';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
 import { DateTimePicker } from '../../components/ui/DateTimePicker';
@@ -53,6 +55,7 @@ export function PropertyDetailPage() {
   const [appliedCouponCode, setAppliedCouponCode] = useState('');
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [carouselPaused, setCarouselPaused] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   const detailsQuery = useQuery({
     queryKey: ['property-detail', propertyId],
@@ -166,7 +169,16 @@ export function PropertyDetailPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {p.images.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setGalleryOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-cyan-500/40 bg-cyan-500/15 px-3.5 py-2 text-xs font-semibold text-cyan-200 hover:bg-cyan-500/25"
+              >
+                <Images className="h-4 w-4" /> Gallery ({p.images.length})
+              </button>
+            )}
             {p.averageRating != null && (
               <div className="flex items-center gap-1.5 rounded-xl bg-amber-500/15 px-3 py-2 text-sm font-semibold text-amber-300">
                 <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
@@ -210,7 +222,8 @@ export function PropertyDetailPage() {
                     src={img.imageUrl}
                     alt={`${p.name} - ${img.imageType}`}
                     loading="lazy"
-                    className="h-full w-full object-cover"
+                    className="h-full w-full cursor-pointer object-contain bg-slate-950"
+                    onClick={() => setGalleryOpen(true)}
                   />
                   <span className="absolute left-3 top-3 rounded-full border border-white/15 bg-slate-950/75 px-3 py-1 text-[11px] font-medium text-cyan-200 backdrop-blur-md">
                     {img.imageType.replace('_', ' ')}
@@ -343,6 +356,14 @@ export function PropertyDetailPage() {
           </div>
         )}
       </div>
+
+      {galleryOpen && p.images.length > 0 && (
+        <PropertyGalleryModal
+          propertyName={p.name}
+          images={p.images}
+          onClose={() => setGalleryOpen(false)}
+        />
+      )}
 
       {/* Stay window + Interactive Bed Selector */}
       <div className="mt-6 grid gap-6 lg:grid-cols-12">
