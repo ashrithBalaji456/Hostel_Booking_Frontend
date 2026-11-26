@@ -5,6 +5,7 @@ import { ownerApi, propertyApi } from '../../api/endpoints';
 import { useToast } from '../../context/ToastContext';
 import { resolveCurrentLocation, reverseGeocode } from '../../utils/geolocation';
 import { SelectDropdown } from '../../components/ui/SelectDropdown';
+import { ImageCropModal, renderCroppedImage, type CropFramingOptions } from '../../components/property/ImageCropModal';
 import type { GenderPolicy, ImageType, PropertyDetailResponse, PropertyType, RoomType } from '../../types/api';
 
 const AMENITY_OPTIONS = [
@@ -24,29 +25,11 @@ interface DraftImageItem {
   displayOrder: number;
 }
 
-function compressImageFile(file: File): Promise<string> {
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('Failed to read image file'));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Invalid image file'));
-      img.onload = () => {
-        const maxDim = 1200;
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.max(1, Math.round(img.width * scale));
-        canvas.height = Math.max(1, Math.round(img.height * scale));
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          resolve(String(reader.result));
-          return;
-        }
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL('image/jpeg', 0.78));
-      };
-      img.src = String(reader.result);
-    };
+    reader.onload = () => resolve(String(reader.result));
     reader.readAsDataURL(file);
   });
 }
@@ -131,6 +114,8 @@ export function OwnerPropertiesPage() {
   const [locationConfirmed, setLocationConfirmed] = useState(initialDraft.locationConfirmed ?? false);
   const [showUnlockConfirm, setShowUnlockConfirm] = useState(false);
   const [customFacility, setCustomFacility] = useState('');
+  const [cropQueue, setCropQueue] = useState<{ src: string; imageType: ImageType; editIndex?: number }[]>([]);
+  const [cropIndex, setCropIndex] = useState(0);
 
   useEffect(() => {
     try {
@@ -760,18 +745,16 @@ export function OwnerPropertiesPage() {
                     const files = Array.from(e.target.files ?? []);
                     if (files.length === 0) return;
                     try {
-                      const compressed = await Promise.all(files.map(compressImageFile));
-                      setImages((prev) => [
-                        ...prev,
-                        ...compressed.map((url, idx) => ({
-                          imageUrl: url,
-                          imageType: prev.length === 0 && idx === 0 ? ('COVER' as ImageType) : newImageType,
-                          displayOrder: prev.length + idx,
+                      const urls = await Promise.all(files.map(readFileAsDataUrl));
+                      setCropQueue(
+                        urls.map((src, idx) => ({
+                          src,
+                          imageType: images.length === 0 && idx === 0 ? ('COVER' as ImageType) : newImageType,
                         })),
-                      ]);
-                      pushToast(`Added ${compressed.length} photo(s). Click Save/Update Property to publish.`, 'success');
+                      );
+                      setCropIndex(0);
                     } catch {
-                      pushToast('Could not process one or more image files', 'error');
+                      pushToast('Could not read one or more image files', 'error');
                     } finally {
                       e.target.value = '';
                     }
@@ -820,15 +803,27 @@ export function OwnerPropertiesPage() {
                 {images.map((img, idx) => (
                   <div key={idx} className="relative overflow-hidden rounded-xl border border-slate-700 bg-slate-950">
                     <img src={img.imageUrl} alt={`Property ${idx + 1}`} className="h-28 w-full object-cover" />
-                    <div className="flex items-center justify-between px-2 py-1.5 text-[11px]">
+                    <div className="flex items-center justify-between gap-2 px-2 py-1.5 text-[11px]">
                       <span className="font-medium text-cyan-300">{img.imageType}</span>
-                      <button
-                        type="button"
-                        onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
-                        className="text-rose-300 hover:text-rose-200"
-                      >
-                        Remove
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCropQueue([{ src: img.imageUrl, imageType: img.imageType, editIndex: idx }]);
+                            setCropIndex(0);
+                          }}
+                          className="text-cyan-300 hover:text-cyan-200"
+                        >
+                          Adjust
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setImages((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-rose-300 hover:text-rose-200"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1150,6 +1145,58 @@ export function OwnerPropertiesPage() {
           </div>
         </form>
       </div>
+
+      {cropQueue[cropIndex] && (
+        <ImageCropModal
+          src={cropQueue[cropIndex].src}
+          initialType={cropQueue[cropIndex].imageType}
+          queueIndex={cropIndex}
+          queueTotal={cropQueue.length}
+          onCancel={() => {
+            setCropQueue([]);
+            setCropIndex(0);
+          }}
+          onApply={({ imageUrl, imageType }) => {
+            const current = cropQueue[cropIndex];
+            if (current.editIndex != null) {
+              const targetIdx = current.editIndex;
+              setImages((prev) =>
+                prev.map((item, idx) => (idx === targetIdx ? { ...item, imageUrl, imageType } : item)),
+              );
+            } else {
+              setImages((prev) => [...prev, { imageUrl, imageType, displayOrder: prev.length }]);
+            }
+            if (cropIndex + 1 < cropQueue.length) {
+              setCropIndex((i) => i + 1);
+            } else {
+              setCropQueue([]);
+              setCropIndex(0);
+              pushToast('Photo framing applied. Click Save/Update Property to publish.', 'success');
+            }
+          }}
+          onApplyAll={async (framing: CropFramingOptions) => {
+            try {
+              const remaining = cropQueue.slice(cropIndex);
+              const rendered = await Promise.all(
+                remaining.map((item) => renderCroppedImage(item.src, framing)),
+              );
+              setImages((prev) => [
+                ...prev,
+                ...rendered.map((url, idx) => ({
+                  imageUrl: url,
+                  imageType: framing.imageType,
+                  displayOrder: prev.length + idx,
+                })),
+              ]);
+              setCropQueue([]);
+              setCropIndex(0);
+              pushToast(`Applied framing to ${rendered.length} photo(s). Click Save/Update Property to publish.`, 'success');
+            } catch {
+              pushToast('Could not process one or more image files', 'error');
+            }
+          }}
+        />
+      )}
     </div>
   );
 }
